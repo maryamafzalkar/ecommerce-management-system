@@ -11,6 +11,8 @@ namespace Ecommerce.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+
+
 public class AuthController : ControllerBase
 {
     private readonly EcommerceDbContext _context;

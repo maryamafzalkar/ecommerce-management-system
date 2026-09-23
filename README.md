@@ -91,11 +91,11 @@ Swagger UI is available during development:
 
 ## 🧪 Testing
 
-Unit tests are included to verify application functionality and business logic.
+The application has been manually tested for CRUD operations ,authentications ,authorization ,valodation ,search ,sorting and security scenarios.
 
 ## 🐳 Docker
 
-Docker support is planned for containerized deployment of the application.
+The backend is containerized using Docker for consistent development and deployment.
 
 ## 📌 Project Status
 
