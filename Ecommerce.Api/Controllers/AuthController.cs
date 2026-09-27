@@ -78,7 +78,7 @@ public async Task<IActionResult> Register(RegisterRequest request)
         };
 
         var key = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(Environment.GetEnvironmentVariable("Jwt--Key")!));
+            Encoding.UTF8.GetBytes(Environment.GetEnvironmentVariable("Jwt__Key")!));
 
         var credentials = new SigningCredentials(
             key,
