@@ -34,6 +34,7 @@ function Login() {
           type="text"
           placeholder="Username"
           value={username}
+          autoComplete="off"
           onChange={(e) => setUsername(e.target.value)}
         />
 
@@ -41,6 +42,7 @@ function Login() {
           type="password"
           placeholder="Password"
           value={password}
+          autoComplete="off"
           onChange={(e) => setPassword(e.target.value)}
         />
 
