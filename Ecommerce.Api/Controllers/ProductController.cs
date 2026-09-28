@@ -57,7 +57,7 @@ public async Task<ActionResult<IEnumerable<Product>>> GetProducts(
     return await query.ToListAsync();
 }
 
-
+ [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
     [HttpPost]
     public async Task<ActionResult<Product>> CreateProduct(Product product)
 {
@@ -80,7 +80,7 @@ if (!categoryExists)
 }
 
 
-
+[Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
 [HttpPut("{id}")]
 public async Task<IActionResult> UpdateProduct(int id, Product product)
 {
