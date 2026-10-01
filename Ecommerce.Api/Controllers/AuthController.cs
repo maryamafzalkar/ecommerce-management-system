@@ -42,6 +42,17 @@ public async Task<IActionResult> Register(RegisterRequest request)
 
     _context.Users.Add(user);
     await _context.SaveChangesAsync();
+    
+    if (user.Role == "Customer")
+{
+    var customer = new Customer
+    {
+        UserId = user.Id
+    };
+
+    _context.Customers.Add(customer);
+    await _context.SaveChangesAsync();
+}
 
     return Ok(new
     {

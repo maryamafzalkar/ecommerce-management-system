@@ -21,7 +21,9 @@ public class CustomersController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Customer>>> GetCustomers()
     {
-        return await _context.Customers.ToListAsync();
+        return await _context.Customers
+        .Include(c => c.User)
+        .ToListAsync(); 
     }
 
 

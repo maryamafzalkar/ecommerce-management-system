@@ -67,7 +67,13 @@ namespace Ecommerce.Api.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int?>("UserId")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
 
                     b.ToTable("Customers");
                 });
@@ -157,6 +163,15 @@ namespace Ecommerce.Api.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("Ecommerce.Api.Models.Customer", b =>
+                {
+                    b.HasOne("Ecommerce.Api.Models.User", "User")
+                        .WithOne()
+                        .HasForeignKey("Ecommerce.Api.Models.Customer", "UserId");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Ecommerce.Api.Models.Order", b =>
