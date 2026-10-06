@@ -4,6 +4,7 @@ import api from "./api";
 import "./App.css";
 import ProductForm from "./ProductForm";
 import Login from "./Login";
+import Cart from "./Cart";
 
 function App() {
   const [categories, setCategories] = useState<any[]>([]);
@@ -90,6 +91,20 @@ function App() {
 
   const token = localStorage.getItem("token");
 
+let role = "";
+
+if (token) {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    role =
+      payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ||
+      payload.role ||
+      "";
+  } catch {
+    role = "";
+  }
+}
+  
   const handleLogout = () => {
     localStorage.removeItem("token");
     window.location.reload();
@@ -118,7 +133,7 @@ function App() {
   return (
     <div className="App">
       <h1>E-Commerce Management System</h1>
-
+        
       <input
         type="text"
         placeholder="Search products..."
@@ -158,12 +173,14 @@ function App() {
         ))}
       </div>
 
-      <ProductForm
-        categories={categories}
-        editingProduct={editingProduct}
-        onProductSaved={handleProductSaved}
-        onCancelEdit={handleCancelEdit}
-      />
+      {role === "Admin" && (
+  <ProductForm
+    categories={categories}
+    editingProduct={editingProduct}
+    onProductSaved={handleProductSaved}
+    onCancelEdit={handleCancelEdit}
+  />
+)}
 
       <h2>Products</h2>
 
@@ -196,27 +213,34 @@ function App() {
                 }
               </td>
 
-              <td>
-                <button
-                  type="button"
-                  onClick={() => handleUpdate(product)}
-                  title="Edit product"
-                >
-                  Edit
-                </button>
+              <td> 
+           {role === "Admin" && (
+    <>
+         <button
+        type="button"
+        onClick={() => handleUpdate(product)}
+        title="Edit product"
+      >
+        Edit
+        </button>
 
-                <button
-                  type="button"
-                  onClick={() => handleDelete(product.id)}
-                  title="Delete product"
-                >
-                  <Trash2 size={18} />
-                </button>
-              </td>
+      <button
+        type="button"
+        onClick={() => handleDelete(product.id)}
+        title="Delete product"
+      >
+        <Trash2 size={18} />
+      </button>
+    </>
+  )}
+          </td>
+
             </tr>
           ))}
+
         </tbody>
       </table>
+      <Cart />
     </div>
   );
 }
