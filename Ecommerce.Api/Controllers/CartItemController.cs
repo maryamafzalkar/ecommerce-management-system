@@ -2,7 +2,8 @@ using Ecommerce.Api.Data;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Ecommerce.Api.Models; 
+using Ecommerce.Api.Models;
+using System.Reflection.Metadata.Ecma335;
 
 namespace Ecommerce.Api.Controllers;
 
@@ -59,6 +60,8 @@ public class CartItemsController : ControllerBase
 
         return Ok(new { Items = items, Total = total });    
     }
+
+
 
 
 
@@ -130,12 +133,60 @@ public async Task<IActionResult> AddToCart(int productId, int quantity)
             UnitPrice= product.Price
         };
 
+
         _context.CartItems.Add(cartItem);
     }
     await _context.SaveChangesAsync();
         return Ok();
     }
 
-     
+
+[HttpDelete("{id}")]
+public async Task<IActionResult> RemoveFromCart(int id)
+{
+    var userIdClaim = User.FindFirst(
+        System.Security.Claims.ClaimTypes.NameIdentifier
+    );
+
+    if (userIdClaim == null)
+    {
+        return Unauthorized();
+    }
+
+    var userId = int.Parse(userIdClaim.Value);
+
+    var customer = await _context.Customers
+        .FirstOrDefaultAsync(c => c.UserId == userId);
+
+    if (customer == null)
+    {
+        return NotFound("Customer profile not found.");
+    }
+
+    var cart = await _context.Carts
+        .FirstOrDefaultAsync(c => c.CustomerId == customer.Id);
+
+    if (cart == null)
+    {
+        return NotFound("Cart not found.");
+    }
+
+    var cartItem = await _context.CartItems
+        .FirstOrDefaultAsync(ci =>
+            ci.Id == id &&
+            ci.CartId == cart.Id);
+
+    if (cartItem == null)
+    {
+        return NotFound("Cart item not found.");
+    }
+
+    _context.CartItems.Remove(cartItem);
+
+    await _context.SaveChangesAsync();
+
+    return NoContent();
 }
+}
+
 
