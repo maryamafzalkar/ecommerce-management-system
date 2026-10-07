@@ -187,6 +187,72 @@ public async Task<IActionResult> RemoveFromCart(int id)
 
     return NoContent();
 }
+
+
+[HttpPut("{id}")]
+public async Task<IActionResult> UpdateQuantity(int id, int quantity)
+{
+    var userIdClaim = User.FindFirst(
+        System.Security.Claims.ClaimTypes.NameIdentifier
+    );
+
+    if (userIdClaim == null)
+    {
+        return Unauthorized();
+    }
+
+    var userId = int.Parse(userIdClaim.Value);
+
+    var customer = await _context.Customers
+        .FirstOrDefaultAsync(c => c.UserId == userId);
+
+    if (customer == null)
+    {
+        return NotFound("Customer profile not found.");
+    }
+
+    var cart = await _context.Carts
+        .FirstOrDefaultAsync(c => c.CustomerId == customer.Id);
+
+    if (cart == null)
+    {
+        return NotFound("Cart not found.");
+    }
+
+    var cartItem = await _context.CartItems
+        .FirstOrDefaultAsync(ci =>
+            ci.Id == id &&
+            ci.CartId == cart.Id);
+
+    if (cartItem == null)
+    {
+        return NotFound("Cart item not found.");
+    }
+
+    if (quantity <= 0)
+    {
+        return BadRequest("Quantity must be greater than zero.");
+    }
+
+    var product = await _context.Products
+        .FirstOrDefaultAsync(p => p.Id == cartItem.ProductId);
+
+    if (product == null)
+    {
+        return NotFound("Product not found.");
+    }
+
+    if (quantity > product.StockQuantity)
+    {
+        return BadRequest("Not enough stock.");
+    }
+
+    cartItem.Quantity = quantity;
+
+    await _context.SaveChangesAsync();
+
+    return Ok(cartItem);
+}
 }
 
 
