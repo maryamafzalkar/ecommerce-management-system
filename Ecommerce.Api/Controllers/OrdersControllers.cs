@@ -16,14 +16,41 @@ public class OrdersController : ControllerBase
     {
         _context = context;
     }
+[HttpGet]
+public async Task<IActionResult> GetOrders()
+{
+    var userIdClaim = User.FindFirst(
+        System.Security.Claims.ClaimTypes.NameIdentifier
+    );
 
-    [HttpGet]
-    public async Task<ActionResult<IEnumerable<Order>>> GetOrders()
+    if (userIdClaim == null ||
+        !int.TryParse(userIdClaim.Value, out int userId))
     {
-        return await _context.Orders
-            .Include(o => o.Customer)
-            .ToListAsync();
+        return Unauthorized();
     }
+
+    var orders = await _context.Orders
+        .AsNoTracking()
+        .Where(o => o.Customer != null &&
+                    o.Customer.UserId == userId)
+        .OrderByDescending(o => o.OrderDate)
+        .Select(o => new
+        {
+            o.Id,
+            o.OrderDate,
+            o.TotalAmount,
+            o.Status,
+            Items = o.OrderItems.Select(item => new
+            {
+                item.ProductId,
+                item.Quantity,
+                item.UnitPrice
+            }).ToList()
+        })
+        .ToListAsync();
+
+    return Ok(orders);
+}
 
     [HttpPost]
     public async Task<ActionResult<Order>> CreateOrder(Order order)
