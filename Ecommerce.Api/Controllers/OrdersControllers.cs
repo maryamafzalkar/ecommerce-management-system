@@ -33,6 +33,97 @@ public class OrdersController : ControllerBase
 
         return Ok(order);
     }
+    [HttpPost("checkout")]
+public async Task<IActionResult> Checkout()
+{
+    var userIdClaim = User.FindFirst(
+        System.Security.Claims.ClaimTypes.NameIdentifier
+    );
+
+    if (userIdClaim == null)
+    {
+        return Unauthorized();
+    }
+
+    var userId = int.Parse(userIdClaim.Value);
+
+    var customer = await _context.Customers
+        .FirstOrDefaultAsync(c => c.UserId == userId);
+
+    if (customer == null)
+    {
+        return NotFound("Customer profile not found.");
+    }
+
+    var cart = await _context.Carts
+        .FirstOrDefaultAsync(c => c.CustomerId == customer.Id);
+
+    if (cart == null)
+    {
+        return NotFound("Cart not found.");
+    }
+
+    var cartItems = await _context.CartItems
+        .Include(ci => ci.Product)
+        .Where(ci => ci.CartId == cart.Id)
+        .ToListAsync();
+
+    if (cartItems.Count == 0)
+    {
+        return BadRequest("Cart is empty.");
+    }
+    
+    var transaction = await _context.Database.BeginTransactionAsync();
+
+    foreach (var item in cartItems)
+    {
+        if (item.Product == null)
+        {
+            return NotFound("Product not found.");
+        }
+
+        if (item.Quantity > item.Product.StockQuantity)
+        {
+            return BadRequest(
+                $"Not enough stock for product: {item.Product.Name}"
+            );
+        }
+    }
+   
+    
+    var order = new Order
+    {
+        CustomerId = customer.Id,
+        TotalAmount = cartItems.Sum(
+            item => item.Quantity * item.Product!.Price
+        ),
+        Status = "Pending"
+    };
+
+    _context.Orders.Add(order);
+
+    foreach (var item in cartItems)
+    {
+        var orderItem = new OrderItem
+        {
+            Order = order,
+            ProductId = item.ProductId,
+            Quantity = item.Quantity,
+            UnitPrice = item.Product!.Price
+        };
+
+        item.Product!.StockQuantity -= item.Quantity;
+
+        _context.OrderItems.Add(orderItem);
+    }
+
+    _context.CartItems.RemoveRange(cartItems);
+
+    await _context.SaveChangesAsync();
+    await transaction.CommitAsync();
+
+    return Ok(order);
+}
 
 
     [HttpPut("{id}")]
