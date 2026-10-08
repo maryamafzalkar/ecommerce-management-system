@@ -122,7 +122,13 @@ public async Task<IActionResult> Checkout()
     await _context.SaveChangesAsync();
     await transaction.CommitAsync();
 
-    return Ok(order);
+   return Ok(new
+{
+    OrderId = order.Id,
+    TotalAmount = order.TotalAmount,
+    Status = order.Status,
+    Message = "Checkout completed successfully"
+});
 }
 
 
