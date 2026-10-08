@@ -125,6 +125,19 @@ if (token) {
       console.error("SEARCH ERROR:", error);
     }
   };
+  const handleAddToCart = async (productId: number) => {
+  try {
+    await api.post(
+      `/CartItems?productId=${productId}&quantity=1`,
+      {}
+    );
+
+    alert("Product added to cart!");
+  } catch (error) {
+    console.error("ADD TO CART ERROR:", error);
+    alert("Failed to add product to cart.");
+  }
+};
 
   if (!token) {
     return <Login />;
@@ -214,6 +227,13 @@ if (token) {
               </td>
 
               <td> 
+                <button
+                  type="button"
+                  onClick={() => handleAddToCart(product.id)}
+                  title="Add to cart"
+                >
+                  Add to Cart
+                </button>
            {role === "Admin" && (
     <>
          <button
