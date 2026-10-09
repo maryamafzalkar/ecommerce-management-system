@@ -5,6 +5,8 @@ import "./App.css";
 import ProductForm from "./ProductForm";
 import Login from "./Login";
 import Cart from "./Cart";
+import MyOrders from "./MyOrders";
+
 
 function App() {
   const [categories, setCategories] = useState<any[]>([]);
@@ -261,6 +263,7 @@ if (token) {
         </tbody>
       </table>
       <Cart />
+      {role === "Customer" && <MyOrders />}
     </div>
   );
 }
