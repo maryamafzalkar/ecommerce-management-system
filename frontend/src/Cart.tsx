@@ -59,8 +59,8 @@ const handleUpdateQuantity = async (id: number, quantity: number) => {
   }
 
   return (
-    <div>
-      <h2>Shopping Cart</h2>
+  <div className="shopping-cart">
+    <h2>Shopping Cart</h2>
 
       {cart.items.length === 0 ? (
         <p>Your cart is empty.</p>
@@ -70,15 +70,13 @@ const handleUpdateQuantity = async (id: number, quantity: number) => {
             <div key={item.id}>
               <h3>{item.product.name}</h3>
 
-              <p>
-                Quantity: {item.quantity}
-              </p>
-
+            
               <p>
                 Unit Price: ${item.unitPrice}
               </p>
 
-              <div>
+              <div className="cart-quantity">
+               
   <span>Quantity: {item.quantity}</span>
 
   <button
@@ -96,13 +94,19 @@ const handleUpdateQuantity = async (id: number, quantity: number) => {
     +
   </button>
 </div>
-              <button onClick={() => handleRemove(item.id)}>Remove</button>
-
+              <button
+         className="cart-remove"
+      onClick={() => handleRemove(item.id)}
+>                Remove
+            </button>
               <hr />
             </div>
           ))}
 
-          <h3>Total: ${cart.total}</h3>
+          <div className="cart-total">
+      <span>Total Price</span>
+     <strong>${cart.total.toFixed(2)}</strong>
+         </div>
         </>
       )}
     </div>
