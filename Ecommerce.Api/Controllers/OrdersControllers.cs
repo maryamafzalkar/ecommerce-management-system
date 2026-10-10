@@ -40,12 +40,16 @@ public async Task<IActionResult> GetOrders()
             o.OrderDate,
             o.TotalAmount,
             o.Status,
-            Items = o.OrderItems.Select(item => new
-            {
-                item.ProductId,
-                item.Quantity,
-                item.UnitPrice
-            }).ToList()
+
+           Items = o.OrderItems.Select(item => new
+{
+    item.ProductId,
+    ProductName = item.Product != null
+        ? item.Product.Name
+        : "Unknown Product",
+    item.Quantity,
+    item.UnitPrice
+             }).ToList()
         })
         .ToListAsync();
 
