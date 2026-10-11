@@ -14,6 +14,7 @@ function App() {
   const [editingProduct, setEditingProduct] = useState<any | null>(null);
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("");
+  const [showMyOrders, setShowMyOrders] = useState(false);
 
   useEffect(() => {
     api
@@ -146,7 +147,7 @@ if (token) {
   }
 
 
-  
+
 
   return (
     <div className="App">
@@ -266,7 +267,28 @@ if (token) {
         </tbody>
       </table>
       <Cart />
-      {role === "Customer" && <MyOrders />}
+
+{role === "Customer" && (
+  <div className="orders-card">
+    <div className="orders-card-header">
+      <h3>📦 My Orders</h3>
+      <p>View your order history and status</p>
+
+      <button
+        type="button"
+        onClick={() => setShowMyOrders(!showMyOrders)}
+      >
+        {showMyOrders ? "Hide Orders" : "View My Orders"}
+      </button>
+    </div>
+
+    {showMyOrders && (
+      <div className="orders-card-content">
+        <MyOrders />
+      </div>
+    )}
+  </div>
+)}
     </div>
   );
 }

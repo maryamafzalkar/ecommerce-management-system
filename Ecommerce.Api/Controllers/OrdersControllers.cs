@@ -57,6 +57,7 @@ public async Task<IActionResult> GetOrders()
 }
 
     [HttpPost]
+    [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
     public async Task<ActionResult<Order>> CreateOrder(Order order)
     {
         _context.Orders.Add(order);
@@ -164,6 +165,7 @@ public async Task<IActionResult> Checkout()
 
 
     [HttpPut("{id}")]
+    [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
 public async Task<IActionResult> UpdateOrder(int id, Order order)
 {
     if (id != order.Id)
@@ -188,6 +190,7 @@ public async Task<IActionResult> UpdateOrder(int id, Order order)
 }
 
     [HttpDelete("{id}")]
+    [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
 public async Task<IActionResult> DeleteOrder(int id)
 {
     var order = await _context.Orders.FindAsync(id);
