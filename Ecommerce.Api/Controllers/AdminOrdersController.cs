@@ -44,4 +44,46 @@ public class AdminOrdersController : ControllerBase
 
         return Ok(orders);
     }
+
+        public class UpdateOrderStatusRequest
+    {
+        public string Status { get; set; } = "";
+    }
+
+    [HttpPatch("{id}/status")]
+    public async Task<IActionResult> UpdateStatus(
+        int id,
+        UpdateOrderStatusRequest request)
+    {
+        var order = await _context.Orders.FindAsync(id);
+
+        if (order == null)
+        {
+            return NotFound("Order not found.");
+        }
+
+        var nextStatus = order.Status switch
+        {
+            "Pending" => "Processing",
+            "Processing" => "Shipped",
+            "Shipped" => "Delivered",
+            _ => null
+        };
+
+        if (nextStatus == null || request.Status != nextStatus)
+        {
+            return BadRequest(
+                "Invalid order status transition."
+            );
+        }
+
+        order.Status = nextStatus;
+        await _context.SaveChangesAsync();
+
+        return Ok(new
+        {
+            order.Id,
+            order.Status
+        });
+    }
 }
