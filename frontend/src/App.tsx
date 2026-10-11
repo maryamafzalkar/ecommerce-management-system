@@ -59,7 +59,7 @@ function App() {
       }
     } catch (error) {
   console.error("DELETE ERROR:", error);
-
+    
   if (
     axios.isAxiosError(error) &&
     error.response?.status === 409 &&
@@ -70,7 +70,7 @@ function App() {
   else {
     alert("Failed to delete product.");
   }
-
+    }
   };
 
   const handleUpdate = (product: any) => {
@@ -285,10 +285,10 @@ if (token) {
       
       
 
-      {role === "Customer" && <Cart />}   // Display the Cart component for customers
-      {role === "Admin" && <AdminOrders />} // Display the AdminOrders component for admins
+      {role === "Customer" && <Cart />}   
+      {role === "Admin" && <AdminOrders />}  
 
-      {role === "Customer" && (    // Display the MyOrders component for customers
+      {role === "Customer" && (   
         <div className="orders-card">
           <div className="orders-card-header">
             <h3>📦 My Orders</h3>
@@ -312,5 +312,5 @@ if (token) {
     </div>
   );
 }
-}
+
 export default App;
