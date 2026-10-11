@@ -7,6 +7,7 @@ import Login from "./Login";
 import Cart from "./Cart";
 import MyOrders from "./MyOrders";
 import AdminOrders from "./AdminOrders";
+import axios from "axios";
 
 
 function App() {
@@ -57,9 +58,19 @@ function App() {
         setEditingProduct(null);
       }
     } catch (error) {
-      console.error("DELETE ERROR:", error);
-      alert("Failed to delete product.");
-    }
+  console.error("DELETE ERROR:", error);
+
+  if (
+    axios.isAxiosError(error) &&
+    error.response?.status === 409 &&
+    typeof error.response.data === "string"
+  ) {
+    alert(error.response.data);
+  }
+  else {
+    alert("Failed to delete product.");
+  }
+
   };
 
   const handleUpdate = (product: any) => {
@@ -234,13 +245,17 @@ if (token) {
               </td>
 
               <td> 
-                <button
-                  type="button"
-                  onClick={() => handleAddToCart(product.id)}
-                  title="Add to cart"
-                >
-                  Add to Cart
-                </button>
+             {role === "Customer" && (
+
+              <button
+                type="button"
+               onClick={() => handleAddToCart(product.id)}
+                      title="Add to cart"
+              >
+                    Add to Cart
+             </button>
+             )}
+             
            {role === "Admin" && (
     <>
          <button
@@ -267,31 +282,35 @@ if (token) {
 
         </tbody>
       </table>
-      <Cart />
-{role === "Admin" && <AdminOrders />}
-{role === "Customer" && (
-  <div className="orders-card">
-    <div className="orders-card-header">
-      <h3>📦 My Orders</h3>
-      <p>View your order history and status</p>
+      
+      
 
-      <button
-        type="button"
-        onClick={() => setShowMyOrders(!showMyOrders)}
-      >
-        {showMyOrders ? "Hide Orders" : "View My Orders"}
-      </button>
-    </div>
+      {role === "Customer" && <Cart />}   // Display the Cart component for customers
+      {role === "Admin" && <AdminOrders />} // Display the AdminOrders component for admins
 
-    {showMyOrders && (
-      <div className="orders-card-content">
-        <MyOrders />
-      </div>
-    )}
-  </div>
-)}
+      {role === "Customer" && (    // Display the MyOrders component for customers
+        <div className="orders-card">
+          <div className="orders-card-header">
+            <h3>📦 My Orders</h3>
+            <p>View your order history and status</p>
+
+            <button
+              type="button"
+              onClick={() => setShowMyOrders(!showMyOrders)}
+            >
+              {showMyOrders ? "Hide Orders" : "View My Orders"}
+            </button>
+          </div>
+
+          {showMyOrders && (
+            <div className="orders-card-content">
+              <MyOrders />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
-
+}
 export default App;
