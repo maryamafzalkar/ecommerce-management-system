@@ -6,6 +6,7 @@ import ProductForm from "./ProductForm";
 import Login from "./Login";
 import Cart from "./Cart";
 import MyOrders from "./MyOrders";
+import AdminOrders from "./AdminOrders";
 
 
 function App() {
@@ -267,7 +268,7 @@ if (token) {
         </tbody>
       </table>
       <Cart />
-
+{role === "Admin" && <AdminOrders />}
 {role === "Customer" && (
   <div className="orders-card">
     <div className="orders-card-header">

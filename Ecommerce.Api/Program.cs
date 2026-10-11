@@ -82,6 +82,37 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
+var adminUsername = builder.Configuration["AdminSeed:Username"];
+var adminPassword = builder.Configuration["AdminSeed:Password"];
+
+if (!string.IsNullOrWhiteSpace(adminUsername) &&
+    !string.IsNullOrWhiteSpace(adminPassword))
+{
+    using var scope = app.Services.CreateScope();
+
+    var context = scope.ServiceProvider
+        .GetRequiredService<EcommerceDbContext>();
+
+    var existingUser = await context.Users
+        .FirstOrDefaultAsync(u => u.Username == adminUsername);
+
+    if (existingUser == null)
+    {
+        context.Users.Add(new Ecommerce.Api.Models.User
+        {
+            Username = adminUsername,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(adminPassword),
+            Role = "Admin"
+        });
+
+        await context.SaveChangesAsync();
+    }
+    else if (existingUser.Role != "Admin")
+    {
+        throw new InvalidOperationException(
+            "Admin seed username is already used by a non-admin account.");
+    }
+}
 //app.UseHttpsRedirection();
 
 app.Run();
