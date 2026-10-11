@@ -121,9 +121,8 @@ public async Task<IActionResult> UpdateProduct(int id, Product product)
 }
 
 
+
 [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
-
-
 [HttpDelete("{id}")]
 public async Task<IActionResult> DeleteProduct(int id)
 {
@@ -131,7 +130,25 @@ public async Task<IActionResult> DeleteProduct(int id)
 
     if (product == null)
     {
-        return NotFound();
+        return NotFound("Product not found.");
+    }
+
+    var hasOrders = await _context.OrderItems
+        .AnyAsync(item => item.ProductId == id);
+
+    if (hasOrders)
+    {
+        return Conflict(
+            "This product cannot be deleted because it belongs to an order.");
+    }
+
+    var isInCart = await _context.CartItems
+        .AnyAsync(item => item.ProductId == id);
+
+    if (isInCart)
+    {
+        return Conflict(
+            "This product cannot be deleted because it is in a shopping cart.");
     }
 
     _context.Products.Remove(product);
