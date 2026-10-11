@@ -18,10 +18,18 @@ type AdminOrder = {
   items: OrderItem[];
 };
 
+const nextStatuses: Record<string, string> = {
+  Pending: "Processing",
+  Processing: "Shipped",
+  Shipped: "Delivered",
+};
+
 function AdminOrders() {
   const [orders, setOrders] = useState<AdminOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [updateError, setUpdateError] = useState("");
+  const [updatingId, setUpdatingId] = useState<number | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -60,13 +68,62 @@ function AdminOrders() {
     };
   }, []);
 
+  const handleUpdateStatus = async (order: AdminOrder) => {
+    const nextStatus = nextStatuses[order.status];
+
+    if (!nextStatus || updatingId !== null) return;
+
+    const confirmed = window.confirm(
+      `Change order #${order.id} to ${nextStatus}?`
+    );
+
+    if (!confirmed) return;
+
+    setUpdatingId(order.id);
+    setUpdateError("");
+
+    try {
+      const response = await api.patch<{ id: number; status: string }>(
+        `/admin/orders/${order.id}/status`,
+        { status: nextStatus }
+      );
+
+      setOrders((currentOrders) =>
+        currentOrders.map((currentOrder) =>
+          currentOrder.id === order.id
+            ? { ...currentOrder, status: response.data.status }
+            : currentOrder
+        )
+      );
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+        if (err.response?.status === 401) {
+          setUpdateError("Your session has expired. Please log in again.");
+        } else if (err.response?.status === 403) {
+          setUpdateError("Only admins can update order status.");
+        } else if (typeof err.response?.data === "string") {
+          setUpdateError(err.response.data);
+        } else {
+          setUpdateError("Failed to update order status. Please try again.");
+        }
+      } else {
+        setUpdateError("Failed to update order status. Please try again.");
+      }
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
   if (loading) return <p role="status">Loading orders...</p>;
   if (error) return <p role="alert">{error}</p>;
-  if (orders.length === 0) return <p>No orders found.</p>;
 
   return (
     <div>
       <h2>All Orders</h2>
+
+      {updateError && <p role="alert">{updateError}</p>}
+
+      {orders.length === 0 && <p>No orders found.</p>}
 
       {orders.map((order) => (
         <article className="orders-card" key={order.id}>
@@ -76,6 +133,18 @@ function AdminOrders() {
           <p>Date: {new Date(order.orderDate).toLocaleString()}</p>
           <p>Status: {order.status}</p>
           <p>Total: ${order.totalAmount.toFixed(2)}</p>
+
+          {nextStatuses[order.status] && (
+            <button
+              type="button"
+              disabled={updatingId !== null}
+              onClick={() => void handleUpdateStatus(order)}
+            >
+              {updatingId === order.id
+                ? "Updating..."
+                : `Mark as ${nextStatuses[order.status]}`}
+            </button>
+          )}
 
           <ul>
             {order.items.map((item, index) => (
