@@ -37,7 +37,7 @@ public async Task<IActionResult> Register(RegisterRequest request)
     {
         Username = request.Username,
         PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
-        Role = request.Role
+        Role = "Customer"
     };
 
     _context.Users.Add(user);
