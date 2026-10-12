@@ -91,9 +91,15 @@ public async Task<IActionResult> AddToCart(int productId, int quantity)
         .FirstOrDefaultAsync(c => c.CustomerId == customer.Id);
 
     if (cart == null)
+{
+    cart = new Cart
     {
-        return NotFound("Cart not found.");
-    }
+        CustomerId = customer.Id
+    };
+
+    _context.Carts.Add(cart);
+    await _context.SaveChangesAsync();
+}
 
     var product = await _context.Products
         .FirstOrDefaultAsync(p => p.Id == productId);
