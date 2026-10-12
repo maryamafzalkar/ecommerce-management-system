@@ -16,7 +16,11 @@ type CartResponse = {
   total: number;
 };
 
-function Cart() {
+type CartProps = {
+  refreshKey?: number;
+};
+
+function Cart({ refreshKey = 0 }: CartProps) {
   const [cart, setCart] = useState<CartResponse | null>(null);
 
   useEffect(() => {
@@ -30,7 +34,7 @@ function Cart() {
     };
 
     loadCart();
-  }, []);
+  }, [refreshKey]);
 
     const handleRemove = async (id: number) => {
   try {

@@ -17,6 +17,8 @@ function App() {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("");
   const [showMyOrders, setShowMyOrders] = useState(false);
+  const [cartVersion, setCartVersion] = useState(0);
+
 
   useEffect(() => {
     api
@@ -107,7 +109,7 @@ function App() {
   const token = localStorage.getItem("token");
 
 let role = "";
-
+let username = "";
 if (token) {
   try {
     const payload = JSON.parse(atob(token.split(".")[1]));
@@ -115,8 +117,14 @@ if (token) {
       payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ||
       payload.role ||
       "";
+    username =
+  payload["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"] ||
+  payload.unique_name ||
+  payload.name ||
+  "";
   } catch {
     role = "";
+    username = "";
   }
 }
   
@@ -146,7 +154,7 @@ if (token) {
       `/CartItems?productId=${productId}&quantity=1`,
       {}
     );
-
+     setCartVersion((current) => current + 1);
     alert("Product added to cart!");
   } catch (error) {
     console.error("ADD TO CART ERROR:", error);
@@ -164,6 +172,11 @@ if (token) {
   return (
     <div className="App">
       <h1>E-Commerce Management System</h1>
+      {username && (
+  <p>
+    Welcome, <strong>{username}</strong>
+  </p>
+)}
         
       <input
         type="text"
@@ -285,7 +298,7 @@ if (token) {
       
       
 
-      {role === "Customer" && <Cart />}   
+      {role === "Customer" && <Cart refreshKey={cartVersion} />}
       {role === "Admin" && <AdminOrders />}  
 
       {role === "Customer" && (   
@@ -300,6 +313,7 @@ if (token) {
             >
               {showMyOrders ? "Hide Orders" : "View My Orders"}
             </button>
+            
           </div>
 
           {showMyOrders && (
@@ -307,9 +321,12 @@ if (token) {
               <MyOrders />
             </div>
           )}
+          
         </div>
       )}
+
     </div>
+
   );
 }
 
