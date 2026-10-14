@@ -227,8 +227,9 @@ if (token) {
 )}
 
       <h2>Products</h2>
-
+   <div className="products-section">
       <table className="products-table">
+      
         <thead>
           <tr>
             <th>Name</th>
@@ -295,15 +296,13 @@ if (token) {
 
         </tbody>
       </table>
-      
-      
-
+      </div>
       {role === "Customer" && <Cart refreshKey={cartVersion} />}
       {role === "Admin" && <AdminOrders />}  
+      {role === "Customer" && ( 
 
-      {role === "Customer" && (   
-        <div className="orders-card">
-          <div className="orders-card-header">
+           <div className="orders-card">
+           <div className="orders-card-header">
             <h3>📦 My Orders</h3>
             <p>View your order history and status</p>
 

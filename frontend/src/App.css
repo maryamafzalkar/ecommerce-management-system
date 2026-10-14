@@ -1129,6 +1129,175 @@ button:focus-visible {
   .order-details-btn {
     width: 100%;
   }
+
+  .App {
+  width: 100%;
+  min-width: 0;
+}
+
+.products-section {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.categories-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 600px) {
+  .App {
+    padding: 24px 16px 40px;
+  }
+
+  .App h1 {
+    font-size: 28px;
+    line-height: 1.2;
+    letter-spacing: -0.5px;
+    overflow-wrap: anywhere;
+  }
+
+  .App > input,
+  .App > select,
+  .App > button {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    margin: 10px 0;
+  }
+
+  .App > input,
+  .App > select,
+  .form-group input,
+  .form-group select,
+  .login-form input {
+    font-size: 16px;
+  }
+
+  .category {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .product-form,
+  .shopping-cart,
+  .orders-card {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .cart-quantity,
+  .cart-total,
+  .order-summary {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .order-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .orders-card,
+  .order-card {
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 600px) {
+  .products-section {
+    overflow: visible;
+  }
+
+  .products-table {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .products-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .products-table tbody {
+    display: block;
+    width: 100%;
+  }
+
+  .products-table tbody tr {
+    display: block;
+    margin-bottom: 16px;
+    padding: 16px;
+    background: white;
+    border: 1px solid #e5eaf2;
+    border-radius: 14px;
+  }
+
+  .products-table tbody td {
+    display: block;
+    padding: 10px 0;
+    text-align: left;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    border-bottom: 1px solid #edf0f5;
+  }
+
+  .products-table tbody td::before {
+    display: block;
+    margin-bottom: 4px;
+    color: #172033;
+    font-weight: 700;
+  }
+
+  .products-table td:nth-child(1)::before {
+    content: "Name";
+  }
+
+  .products-table td:nth-child(2)::before {
+    content: "Description";
+  }
+
+  .products-table td:nth-child(3)::before {
+    content: "Price";
+  }
+
+  .products-table td:nth-child(4)::before {
+    content: "Stock";
+  }
+
+  .products-table td:nth-child(5)::before {
+    content: "Category";
+  }
+
+  .products-table td:nth-child(6)::before {
+    content: "Action";
+  }
+
+  .products-table tbody td:last-child {
+    border-bottom: none;
+  }
+
+  .products-table td:last-child button {
+    min-height: 44px;
+    margin: 6px;
+  }
+}
+
+
+
 }
 
 
