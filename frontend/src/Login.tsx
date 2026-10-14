@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import axios from "axios";
 import api from "./api";
 
@@ -8,6 +9,8 @@ function Login() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -16,6 +19,8 @@ function Login() {
     setIsRegistering((current) => !current);
     setPassword("");
     setConfirmPassword("");
+    setShowPassword(false);
+    setShowConfirmPassword(false);
     setError("");
     setMessage("");
   };
@@ -52,6 +57,8 @@ function Login() {
         setUsername(trimmedUsername);
         setPassword("");
         setConfirmPassword("");
+        setShowPassword(false);
+        setShowConfirmPassword(false);
         setIsRegistering(false);
         setMessage("Account created successfully. Please log in.");
       } else {
@@ -114,32 +121,72 @@ function Login() {
         />
 
         <label htmlFor="password">Password</label>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          placeholder="Password"
-          value={password}
-          autoComplete={isRegistering ? "new-password" : "current-password"}
-          required
-          disabled={loading}
-          onChange={(event) => setPassword(event.target.value)}
-        />
+        <div className="password-field">
+          <input
+            id="password"
+            name="password"
+            type={showPassword ? "text" : "password"}
+            placeholder="Password"
+            value={password}
+            autoComplete={isRegistering ? "new-password" : "current-password"}
+            required
+            disabled={loading}
+            onChange={(event) => setPassword(event.target.value)}
+          />
+
+          <button
+            type="button"
+            className="password-toggle"
+            aria-label={showPassword ? "Hide password" : "Show password"}
+            aria-controls="password"
+            aria-pressed={showPassword}
+            disabled={loading}
+            onClick={() => setShowPassword((current) => !current)}
+          >
+            {showPassword ? (
+              <EyeOff size={20} aria-hidden="true" />
+            ) : (
+              <Eye size={20} aria-hidden="true" />
+            )}
+          </button>
+        </div>
 
         {isRegistering && (
           <>
             <label htmlFor="confirm-password">Confirm Password</label>
-            <input
-              id="confirm-password"
-              name="confirmPassword"
-              type="password"
-              placeholder="Confirm password"
-              value={confirmPassword}
-              autoComplete="new-password"
-              required
-              disabled={loading}
-              onChange={(event) => setConfirmPassword(event.target.value)}
-            />
+            <div className="password-field">
+              <input
+                id="confirm-password"
+                name="confirmPassword"
+                type={showConfirmPassword ? "text" : "password"}
+                placeholder="Confirm password"
+                value={confirmPassword}
+                autoComplete="new-password"
+                required
+                disabled={loading}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+              />
+
+              <button
+                type="button"
+                className="password-toggle"
+                aria-label={
+                  showConfirmPassword
+                    ? "Hide confirm password"
+                    : "Show confirm password"
+                }
+                aria-controls="confirm-password"
+                aria-pressed={showConfirmPassword}
+                disabled={loading}
+                onClick={() => setShowConfirmPassword((current) => !current)}
+              >
+                {showConfirmPassword ? (
+                  <EyeOff size={20} aria-hidden="true" />
+                ) : (
+                  <Eye size={20} aria-hidden="true" />
+                )}
+              </button>
+            </div>
           </>
         )}
 
