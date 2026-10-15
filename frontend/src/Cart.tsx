@@ -22,6 +22,8 @@ type CartProps = {
 
 function Cart({ refreshKey = 0 }: CartProps) {
   const [cart, setCart] = useState<CartResponse | null>(null);
+  const [checkingOut, setCheckingOut] = useState(false);
+const [checkoutMessage, setCheckoutMessage] = useState("");
 
   useEffect(() => {
     const loadCart = async () => {
@@ -58,6 +60,31 @@ const handleUpdateQuantity = async (id: number, quantity: number) => {
     console.error("Error updating cart quantity:", error);
   }
 };
+
+const handleCheckout = async () => {
+  if (checkingOut || !cart || cart.items.length === 0) return;
+
+  setCheckingOut(true);
+  setCheckoutMessage("");
+
+  try {
+    const response = await api.post<{ orderId: number }>(
+      "/Orders/checkout"
+    );
+
+    setCart({ items: [], total: 0 });
+    setCheckoutMessage(
+      `Order #${response.data.orderId} placed successfully.`
+    );
+  } catch (error) {
+    console.error("Checkout failed:", error);
+    setCheckoutMessage(
+      "Could not confirm your order. Refresh My Orders before trying again."
+    );
+  } finally {
+    setCheckingOut(false);
+  }
+};
   if (!cart) {
     return <p>Loading cart...</p>;
   }
@@ -65,6 +92,9 @@ const handleUpdateQuantity = async (id: number, quantity: number) => {
   return (
   <div className="shopping-cart">
     <h2>Shopping Cart</h2>
+    {checkoutMessage && (
+  <p role="status">{checkoutMessage}</p>
+)}
 
       {cart.items.length === 0 ? (
         <p>Your cart is empty.</p>
@@ -111,6 +141,13 @@ const handleUpdateQuantity = async (id: number, quantity: number) => {
       <span>Total Price</span>
      <strong>${cart.total.toFixed(2)}</strong>
          </div>
+                   <button
+            type="button"
+            onClick={handleCheckout}
+            disabled={checkingOut}
+          >
+            {checkingOut ? "Placing order..." : "Place Order"}
+          </button>
         </>
       )}
     </div>
