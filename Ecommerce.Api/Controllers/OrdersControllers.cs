@@ -105,7 +105,7 @@ public async Task<IActionResult> Checkout()
         return BadRequest("Cart is empty.");
     }
     
-    var transaction = await _context.Database.BeginTransactionAsync();
+    await using var transaction = await _context.Database.BeginTransactionAsync();
 
     foreach (var item in cartItems)
     {
