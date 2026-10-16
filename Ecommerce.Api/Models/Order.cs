@@ -6,6 +6,8 @@ public class Order
 
     public int CustomerId { get; set; }
 
+    public Guid? CheckoutRequestId { get; set; }
+
     public DateTime OrderDate { get; set; } = DateTime.UtcNow;
 
     public decimal TotalAmount { get; set; }

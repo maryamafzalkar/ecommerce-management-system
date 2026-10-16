@@ -133,6 +133,9 @@ namespace Ecommerce.Api.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<Guid?>("CheckoutRequestId")
+                        .HasColumnType("uuid");
+
                     b.Property<int>("CustomerId")
                         .HasColumnType("integer");
 
@@ -148,7 +151,8 @@ namespace Ecommerce.Api.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CustomerId");
+                    b.HasIndex("CustomerId", "CheckoutRequestId")
+                        .IsUnique();
 
                     b.ToTable("Orders");
                 });

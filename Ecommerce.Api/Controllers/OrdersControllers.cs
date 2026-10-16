@@ -65,102 +65,160 @@ public async Task<IActionResult> GetOrders()
 
         return Ok(order);
     }
-    [HttpPost("checkout")]
-public async Task<IActionResult> Checkout()
+    
+  [HttpPost("checkout")]
+[Microsoft.AspNetCore.Authorization.Authorize(Roles = "Customer")]
+public async Task<IActionResult> Checkout(
+    [FromHeader(Name = "Idempotency-Key")] Guid? requestId)
 {
-    var userIdClaim = User.FindFirst(
-        System.Security.Claims.ClaimTypes.NameIdentifier
-    );
+    if (!requestId.HasValue || requestId.Value == Guid.Empty)
+    {
+        return BadRequest("A valid checkout request ID is required.");
+    }
 
-    if (userIdClaim == null)
+    var userIdValue = User.FindFirst(
+        System.Security.Claims.ClaimTypes.NameIdentifier
+    )?.Value;
+
+    if (!int.TryParse(userIdValue, out var userId))
     {
         return Unauthorized();
     }
 
-    var userId = int.Parse(userIdClaim.Value);
+    await using var transaction =
+        await _context.Database.BeginTransactionAsync(
+            System.Data.IsolationLevel.Serializable
+        );
 
-    var customer = await _context.Customers
-        .FirstOrDefaultAsync(c => c.UserId == userId);
-
-    if (customer == null)
+    try
     {
-        return NotFound("Customer profile not found.");
-    }
+        var customer = await _context.Customers
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.UserId == userId);
 
-    var cart = await _context.Carts
-        .FirstOrDefaultAsync(c => c.CustomerId == customer.Id);
-
-    if (cart == null)
-    {
-        return NotFound("Cart not found.");
-    }
-
-    var cartItems = await _context.CartItems
-        .Include(ci => ci.Product)
-        .Where(ci => ci.CartId == cart.Id)
-        .ToListAsync();
-
-    if (cartItems.Count == 0)
-    {
-        return BadRequest("Cart is empty.");
-    }
-    
-    await using var transaction = await _context.Database.BeginTransactionAsync();
-
-    foreach (var item in cartItems)
-    {
-        if (item.Product == null)
+        if (customer == null)
         {
-            return NotFound("Product not found.");
+            return NotFound("Customer profile not found.");
         }
 
-        if (item.Quantity > item.Product.StockQuantity)
-        {
-            return BadRequest(
-                $"Not enough stock for product: {item.Product.Name}"
+        var existingOrder = await _context.Orders
+            .AsNoTracking()
+            .FirstOrDefaultAsync(o =>
+                o.CustomerId == customer.Id &&
+                o.CheckoutRequestId == requestId.Value
             );
-        }
-    }
-   
-    
-    var order = new Order
-    {
-        CustomerId = customer.Id,
-        TotalAmount = cartItems.Sum(
-            item => item.Quantity * item.Product!.Price
-        ),
-        Status = "Pending"
-    };
 
-    _context.Orders.Add(order);
-
-    foreach (var item in cartItems)
-    {
-        var orderItem = new OrderItem
+        if (existingOrder != null)
         {
-            Order = order,
-            ProductId = item.ProductId,
-            Quantity = item.Quantity,
-            UnitPrice = item.Product!.Price
+            return Ok(new
+            {
+                OrderId = existingOrder.Id,
+                TotalAmount = existingOrder.TotalAmount,
+                Status = existingOrder.Status,
+                Message = "Order already placed successfully."
+            });
+        }
+
+        var cart = await _context.Carts
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.CustomerId == customer.Id);
+
+        if (cart == null)
+        {
+            return NotFound("Cart not found.");
+        }
+
+        var cartItems = await _context.CartItems
+            .Include(ci => ci.Product)
+            .Where(ci => ci.CartId == cart.Id)
+            .OrderBy(ci => ci.ProductId)
+            .ThenBy(ci => ci.Id)
+            .ToListAsync();
+
+        if (cartItems.Count == 0)
+        {
+            return BadRequest("Cart is empty.");
+        }
+
+        if (cartItems.Any(item =>
+            item.Quantity <= 0 || item.Product == null))
+        {
+            return BadRequest("Your cart contains an invalid item.");
+        }
+
+        var order = new Order
+        {
+            CustomerId = customer.Id,
+            CheckoutRequestId = requestId.Value,
+            TotalAmount = cartItems.Sum(
+                item => item.Quantity * item.Product!.Price
+            ),
+            Status = "Pending"
         };
 
-        item.Product!.StockQuantity -= item.Quantity;
+        foreach (var item in cartItems)
+        {
+            var updatedRows = await _context.Products
+                .Where(p =>
+                    p.Id == item.ProductId &&
+                    p.StockQuantity >= item.Quantity
+                )
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(
+                        p => p.StockQuantity,
+                        p => p.StockQuantity - item.Quantity
+                    )
+                );
 
-        _context.OrderItems.Add(orderItem);
+            if (updatedRows == 0)
+            {
+                return Conflict(
+                    $"Not enough stock for product: {item.Product!.Name}"
+                );
+            }
+
+            order.OrderItems.Add(new OrderItem
+            {
+                ProductId = item.ProductId,
+                Quantity = item.Quantity,
+                UnitPrice = item.Product!.Price
+            });
+        }
+
+        _context.Orders.Add(order);
+        _context.CartItems.RemoveRange(cartItems);
+
+        await _context.SaveChangesAsync();
+        await transaction.CommitAsync();
+
+        return Ok(new
+        {
+            OrderId = order.Id,
+            TotalAmount = order.TotalAmount,
+            Status = order.Status,
+            Message = "Checkout completed successfully."
+        });
+    }
+    catch (Exception exception) when (
+        exception is Npgsql.PostgresException
+        {
+            SqlState: "40001" or "40P01" or "23505"
+        } ||
+        exception is DbUpdateException
+        {
+            InnerException: Npgsql.PostgresException
+            {
+                SqlState: "40001" or "40P01" or "23505"
+            }
+        })
+    {
+        await transaction.RollbackAsync();
+
+        return Conflict(
+            "Your cart changed during checkout. Retry with the same request ID."
+        );
     }
 
-    _context.CartItems.RemoveRange(cartItems);
-
-    await _context.SaveChangesAsync();
-    await transaction.CommitAsync();
-
-   return Ok(new
-{
-    OrderId = order.Id,
-    TotalAmount = order.TotalAmount,
-    Status = order.Status,
-    Message = "Checkout completed successfully"
-});
 }
 
 
