@@ -199,26 +199,36 @@ public async Task<IActionResult> Checkout(
             Message = "Checkout completed successfully."
         });
     }
-    catch (Exception exception) when (
-        exception is Npgsql.PostgresException
-        {
-            SqlState: "40001" or "40P01" or "23505"
-        } ||
-        exception is DbUpdateException
-        {
-            InnerException: Npgsql.PostgresException
-            {
-                SqlState: "40001" or "40P01" or "23505"
-            }
-        })
+        catch (Exception exception)
+        when (IsCheckoutConflict(exception))
     {
         await transaction.RollbackAsync();
 
         return Conflict(
-            "Your cart changed during checkout. Retry with the same request ID."
+            "Checkout conflicted with another request. " +
+            "Retry with the same request ID."
         );
     }
+    
+      
+    }
 
+private static bool IsCheckoutConflict(Exception exception)
+{
+    for (
+        Exception? current = exception;
+        current != null;
+        current = current.InnerException
+    )
+    {
+        if (current is Npgsql.PostgresException postgresException &&
+            postgresException.SqlState is "40001" or "40P01" or "23505")
+        {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 
