@@ -308,10 +308,12 @@ function Cart({
         {loading ? "Loading cart..." : "Refresh Cart"}
       </button>
 
-      {hasPendingCheckout && (
+            {hasPendingCheckout && !checkingOut && (
         <p>
-          A checkout request is awaiting confirmation.
-          Check My Orders or retry the same request.
+          To try again, select Retry Same Checkout.
+          This helps prevent duplicate orders.
+          If you are unsure whether your order was placed,
+          check My Orders first.
         </p>
       )}
 
