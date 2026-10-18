@@ -123,11 +123,17 @@ public async Task<IActionResult> AddToCart(int productId, int quantity)
         .FirstOrDefaultAsync(ci =>
             ci.CartId == cart.Id &&
             ci.ProductId == productId);
-
     if (existingItem != null)
     {
-        existingItem.Quantity += quantity;
-        existingItem.UnitPrice = product.Price; // Update the unit price in case it has changed
+        var newQuantity = (long)existingItem.Quantity + quantity;
+
+        if (newQuantity > product.StockQuantity)
+        {
+            return BadRequest("Not enough stock.");
+        }
+
+        existingItem.Quantity = (int)newQuantity;
+        existingItem.UnitPrice = product.Price;
     }
     else
     {
