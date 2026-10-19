@@ -178,10 +178,10 @@ public async Task<IActionResult> RemoveFromCart(int id)
     var cart = await _context.Carts
         .FirstOrDefaultAsync(c => c.CustomerId == customer.Id);
 
-    if (cart == null)
-    {
-        return NotFound("Cart not found.");
-    }
+   if (cart == null)
+{
+    return NotFound("Cart not found.");
+}
 
     var cartItem = await _context.CartItems
         .FirstOrDefaultAsync(ci =>
