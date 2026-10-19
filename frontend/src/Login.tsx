@@ -25,7 +25,9 @@ function Login() {
     setMessage("");
   };
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (
+    event: FormEvent<HTMLFormElement>
+  ) => {
     event.preventDefault();
 
     if (loading) return;
@@ -62,10 +64,13 @@ function Login() {
         setIsRegistering(false);
         setMessage("Account created successfully. Please log in.");
       } else {
-        const response = await api.post<{ token: string }>("/Auth/login", {
-          username: trimmedUsername,
-          password,
-        });
+        const response = await api.post<{ token: string }>(
+          "/Auth/login",
+          {
+            username: trimmedUsername,
+            password,
+          }
+        );
 
         if (!response.data.token) {
           setError("Login failed. Please try again.");
@@ -75,21 +80,55 @@ function Login() {
         localStorage.setItem("token", response.data.token);
         window.location.reload();
       }
-    } catch (err) {
+    } catch (err: unknown) {
+      const fallback = isRegistering
+        ? "Registration failed. Please check your details."
+        : "Login failed. Please check your username and password.";
+
       if (axios.isAxiosError(err)) {
         if (!err.response) {
           setError("Unable to connect. Please try again.");
-        } else if (
-          typeof err.response.data === "string" &&
-          err.response.data.trim()
-        ) {
-          setError(err.response.data);
         } else {
-          setError(
-            isRegistering
-              ? "Registration failed. Please check your details."
-              : "Login failed. Please check your username and password."
-          );
+          const data: unknown = err.response.data;
+          const messages: string[] = [];
+
+          if (
+            err.response.status === 400 &&
+            typeof data === "object" &&
+            data !== null &&
+            "errors" in data
+          ) {
+            const validationErrors = data.errors;
+
+            if (
+              typeof validationErrors === "object" &&
+              validationErrors !== null
+            ) {
+              for (const value of Object.values(validationErrors)) {
+                if (Array.isArray(value)) {
+                  for (const validationMessage of value) {
+                    if (
+                      typeof validationMessage === "string" &&
+                      validationMessage.trim()
+                    ) {
+                      messages.push(validationMessage.trim());
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          if (messages.length > 0) {
+            setError([...new Set(messages)].join(" "));
+          } else if (
+            typeof data === "string" &&
+            data.trim()
+          ) {
+            setError(data);
+          } else {
+            setError(fallback);
+          }
         }
       } else {
         setError("Something went wrong. Please try again.");
@@ -128,7 +167,9 @@ function Login() {
             type={showPassword ? "text" : "password"}
             placeholder="Password"
             value={password}
-            autoComplete={isRegistering ? "new-password" : "current-password"}
+            autoComplete={
+              isRegistering ? "new-password" : "current-password"
+            }
             required
             disabled={loading}
             onChange={(event) => setPassword(event.target.value)}
@@ -137,7 +178,9 @@ function Login() {
           <button
             type="button"
             className="password-toggle"
-            aria-label={showPassword ? "Hide password" : "Show password"}
+            aria-label={
+              showPassword ? "Hide password" : "Show password"
+            }
             aria-controls="password"
             aria-pressed={showPassword}
             disabled={loading}
@@ -153,7 +196,10 @@ function Login() {
 
         {isRegistering && (
           <>
-            <label htmlFor="confirm-password">Confirm Password</label>
+            <label htmlFor="confirm-password">
+              Confirm Password
+            </label>
+
             <div className="password-field">
               <input
                 id="confirm-password"
@@ -164,7 +210,9 @@ function Login() {
                 autoComplete="new-password"
                 required
                 disabled={loading}
-                onChange={(event) => setConfirmPassword(event.target.value)}
+                onChange={(event) =>
+                  setConfirmPassword(event.target.value)
+                }
               />
 
               <button
@@ -178,7 +226,9 @@ function Login() {
                 aria-controls="confirm-password"
                 aria-pressed={showConfirmPassword}
                 disabled={loading}
-                onClick={() => setShowConfirmPassword((current) => !current)}
+                onClick={() =>
+                  setShowConfirmPassword((current) => !current)
+                }
               >
                 {showConfirmPassword ? (
                   <EyeOff size={20} aria-hidden="true" />
@@ -204,7 +254,11 @@ function Login() {
             : "Don't have an account?"}
         </p>
 
-        <button type="button" onClick={switchMode} disabled={loading}>
+        <button
+          type="button"
+          onClick={switchMode}
+          disabled={loading}
+        >
           {isRegistering ? "Back to Login" : "Sign up"}
         </button>
       </form>
