@@ -231,32 +231,16 @@ private static bool IsCheckoutConflict(Exception exception)
     return false;
 }
 
-
-    [HttpPut("{id}")]
-    [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
-public async Task<IActionResult> UpdateOrder(int id, Order order)
+[HttpPut("{id}")]
+[Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+public IActionResult UpdateOrder(int id)
 {
-    if (id != order.Id)
-    {
-        return BadRequest();
-    }
-
-    var existingOrder = await _context.Orders.FindAsync(id);
-
-    if (existingOrder == null)
-    {
-        return NotFound();
-    }
-
-    existingOrder.CustomerId = order.CustomerId;
-    existingOrder.TotalAmount = order.TotalAmount;
-    existingOrder.Status = order.Status;
-
-    await _context.SaveChangesAsync();
-
-    return Ok(existingOrder);
+    return StatusCode(
+        410,
+        "Direct order editing is no longer supported. " +
+        "Use the admin order status endpoint."
+    );
 }
-
     [HttpDelete("{id}")]
     [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
 public async Task<IActionResult> DeleteOrder(int id)
