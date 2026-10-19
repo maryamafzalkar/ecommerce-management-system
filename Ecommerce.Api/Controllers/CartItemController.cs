@@ -21,46 +21,54 @@ public class CartItemsController : ControllerBase
 
 
 
-    [HttpGet]
-    public async Task<IActionResult> GetCartItems()
+   [HttpGet]
+public async Task<IActionResult> GetCartItems()
+{
+    var userIdValue = User.FindFirst(
+        System.Security.Claims.ClaimTypes.NameIdentifier
+    )?.Value;
+
+    if (!int.TryParse(userIdValue, out var userId))
     {
-        var userIdClaim = User.FindFirst(
-            System.Security.Claims.ClaimTypes.NameIdentifier
-        );
-
-        if (userIdClaim == null)
-        {
-            return Unauthorized();
-        }
-
-        var userId = int.Parse(userIdClaim.Value);
-
-        var customer = await _context.Customers
-            .FirstOrDefaultAsync(c => c.UserId == userId);
-
-        if (customer == null)
-        {
-            return NotFound("Customer profile not found.");
-        }
-
-        var cart = await _context.Carts
-            .FirstOrDefaultAsync(c => c.CustomerId == customer.Id);
-
-        if (cart == null)
-        {
-            return NotFound("Cart not found.");
-        }
-
-        var items = await _context.CartItems
-            .Include(ci => ci.Product)
-            .Where(ci => ci.CartId == cart.Id)
-            .ToListAsync();
-
-       var total = items.Sum(ci => ci.Quantity * ci.UnitPrice);
-
-        return Ok(new { Items = items, Total = total });    
+        return Unauthorized();
     }
 
+    var customer = await _context.Customers
+        .AsNoTracking()
+        .FirstOrDefaultAsync(c => c.UserId == userId);
+
+    if (customer == null)
+    {
+        return NotFound("Customer profile not found.");
+    }
+
+    var cart = await _context.Carts
+        .AsNoTracking()
+        .FirstOrDefaultAsync(c => c.CustomerId == customer.Id);
+
+    if (cart == null)
+    {
+        return Ok(new
+        {
+            Items = Array.Empty<CartItem>(),
+            Total = 0m
+        });
+    }
+
+    var items = await _context.CartItems
+        .AsNoTracking()
+        .Include(ci => ci.Product)
+        .Where(ci => ci.CartId == cart.Id)
+        .ToListAsync();
+
+    var total = items.Sum(ci => ci.Quantity * ci.UnitPrice);
+
+    return Ok(new
+    {
+        Items = items,
+        Total = total
+    });
+}
 
 
 
