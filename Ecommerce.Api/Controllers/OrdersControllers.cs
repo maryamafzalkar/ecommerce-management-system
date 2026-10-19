@@ -242,19 +242,13 @@ public IActionResult UpdateOrder(int id)
     );
 }
     [HttpDelete("{id}")]
-    [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
-public async Task<IActionResult> DeleteOrder(int id)
+[Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+public IActionResult DeleteOrder(int id)
 {
-    var order = await _context.Orders.FindAsync(id);
-
-    if (order == null)
-    {
-        return NotFound();
-    }
-
-    _context.Orders.Remove(order);
-    await _context.SaveChangesAsync();
-
-    return NoContent();
+    return StatusCode(
+        410,
+        "Order deletion is no longer supported. " +
+        "Order history must be preserved."
+    );
 }
 }
