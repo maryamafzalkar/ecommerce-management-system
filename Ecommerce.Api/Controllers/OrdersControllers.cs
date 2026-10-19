@@ -55,16 +55,16 @@ public async Task<IActionResult> GetOrders()
 
     return Ok(orders);
 }
-
-    [HttpPost]
-    [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
-    public async Task<ActionResult<Order>> CreateOrder(Order order)
-    {
-        _context.Orders.Add(order);
-        await _context.SaveChangesAsync();
-
-        return Ok(order);
-    }
+[HttpPost]
+[Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+public IActionResult CreateOrder()
+{
+    return StatusCode(
+        410,
+        "Direct order creation is no longer supported. " +
+        "Use the checkout endpoint."
+    );
+}
     
   [HttpPost("checkout")]
 [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Customer")]
