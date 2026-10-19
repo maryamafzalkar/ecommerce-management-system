@@ -21,14 +21,13 @@ public class AuthController : ControllerBase
     {
         _context = context;
     }
-
-    [HttpPost("register")]
+[HttpPost("register")]
 public async Task<IActionResult> Register(RegisterRequest request)
 {
     var existingUser = await _context.Users
-        .FirstOrDefaultAsync(u => u.Username == request.Username);
+        .AnyAsync(u => u.Username == request.Username);
 
-    if (existingUser != null)
+    if (existingUser)
     {
         return BadRequest("Username already exists.");
     }
@@ -40,11 +39,12 @@ public async Task<IActionResult> Register(RegisterRequest request)
         Role = "Customer"
     };
 
+    await using var transaction =
+        await _context.Database.BeginTransactionAsync();
+
     _context.Users.Add(user);
     await _context.SaveChangesAsync();
-    
-    if (user.Role == "Customer")
-{
+
     var customer = new Customer
     {
         UserId = user.Id
@@ -52,13 +52,16 @@ public async Task<IActionResult> Register(RegisterRequest request)
 
     _context.Customers.Add(customer);
     await _context.SaveChangesAsync();
-}
+
+    await transaction.CommitAsync();
 
     return Ok(new
     {
         message = "User registered successfully."
     });
 }
+
+    
     
 
     [HttpPost("login")]
