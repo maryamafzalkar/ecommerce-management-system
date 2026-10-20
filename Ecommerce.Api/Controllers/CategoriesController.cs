@@ -27,6 +27,7 @@ public class CategoriesController : ControllerBase
 
 
     [HttpPost]
+    [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
     public async Task<ActionResult<Category>> CreateCategory(Category category)
     {
         _context.Categories.Add(category);
@@ -37,12 +38,13 @@ public class CategoriesController : ControllerBase
 
 
     [HttpPut("{id}")]
-public async Task<IActionResult> UpdateCategory(int id, Category category)
-{
-    if (id != category.Id)
+    [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
+    public async Task<IActionResult> UpdateCategory(int id, Category category)
     {
-        return BadRequest();
-    }
+        if (id != category.Id)
+        {
+            return BadRequest();
+        }
 
     var existingCategory = await _context.Categories.FindAsync(id);
 
@@ -60,6 +62,7 @@ public async Task<IActionResult> UpdateCategory(int id, Category category)
 
 
 [HttpDelete("{id}")]
+[Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
 public async Task<IActionResult> DeleteCategory(int id)
 {
     var category = await _context.Categories.FindAsync(id);
