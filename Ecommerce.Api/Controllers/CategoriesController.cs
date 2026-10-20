@@ -69,7 +69,17 @@ public async Task<IActionResult> DeleteCategory(int id)
 
     if (category == null)
     {
-        return NotFound();
+        return NotFound("Category not found.");
+    }
+
+    var hasProducts = await _context.Products
+        .AnyAsync(product => product.CategoryId == id);
+
+    if (hasProducts)
+    {
+        return Conflict(
+            "This category cannot be deleted because it contains products."
+        );
     }
 
     _context.Categories.Remove(category);
