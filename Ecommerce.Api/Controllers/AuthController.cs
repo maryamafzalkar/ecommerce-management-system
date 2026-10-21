@@ -21,6 +21,8 @@ public class AuthController : ControllerBase
     {
         _context = context;
     }
+
+    
 [HttpPost("register")]
 public async Task<IActionResult> Register(RegisterRequest request)
 {
@@ -42,25 +44,38 @@ public async Task<IActionResult> Register(RegisterRequest request)
     await using var transaction =
         await _context.Database.BeginTransactionAsync();
 
-    _context.Users.Add(user);
-    await _context.SaveChangesAsync();
-
-    var customer = new Customer
+    try
     {
-        UserId = user.Id
-    };
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
 
-    _context.Customers.Add(customer);
-    await _context.SaveChangesAsync();
+        var customer = new Customer
+        {
+            UserId = user.Id
+        };
 
-    await transaction.CommitAsync();
+        _context.Customers.Add(customer);
+        await _context.SaveChangesAsync();
 
-    return Ok(new
+        await transaction.CommitAsync();
+
+        return Ok(new
+        {
+            message = "User registered successfully."
+        });
+    }
+    catch (DbUpdateException exception) when (
+        exception.InnerException is Npgsql.PostgresException
+        {
+            SqlState: "23505",
+            ConstraintName: "IX_Users_Username"
+        })
     {
-        message = "User registered successfully."
-    });
+        await transaction.RollbackAsync();
+
+        return BadRequest("Username already exists.");
+    }
 }
-
     
     
 
