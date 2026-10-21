@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import api from "./api";
 
@@ -17,16 +16,17 @@ type Order = {
   items: OrderItem[];
 };
 
+const ORDERS_PER_PAGE = 4;
+
 export default function MyOrders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
-
+  const [page, setPage] = useState(1);
   const [expandedOrderId, setExpandedOrderId] =
     useState<number | null>(null);
 
-  // Fetch orders from Render API
   const loadOrders = async (isRefresh = false) => {
     if (isRefresh) {
       setRefreshing(true);
@@ -38,7 +38,6 @@ export default function MyOrders() {
 
     try {
       const response = await api.get<Order[]>("/Orders");
-
       setOrders(response.data);
     } catch (err: unknown) {
       console.error("Orders API Error:", err);
@@ -47,15 +46,11 @@ export default function MyOrders() {
         typeof err === "object" &&
         err !== null &&
         "response" in err
-          ? (err as {
-              response?: { status?: number };
-            }).response?.status
+          ? (err as { response?: { status?: number } }).response?.status
           : undefined;
 
       setError(
-        `Failed to load orders. Status: ${
-          status ?? "Network Error"
-        }`
+        `Failed to load orders. Status: ${status ?? "Network Error"}`
       );
     } finally {
       setLoading(false);
@@ -63,7 +58,6 @@ export default function MyOrders() {
     }
   };
 
-  // Load orders when component mounts
   useEffect(() => {
     void loadOrders();
   }, []);
@@ -71,10 +65,17 @@ export default function MyOrders() {
   if (loading) {
     return (
       <div className="my-orders">
-        <p>Loading orders...</p>
+        <p role="status">Loading orders...</p>
       </div>
     );
   }
+
+  const pageCount = Math.max(1, Math.ceil(orders.length / ORDERS_PER_PAGE));
+  const currentPage = Math.min(page, pageCount);
+  const visibleOrders = orders.slice(
+    (currentPage - 1) * ORDERS_PER_PAGE,
+    currentPage * ORDERS_PER_PAGE
+  );
 
   return (
     <div className="my-orders">
@@ -94,98 +95,114 @@ export default function MyOrders() {
       {orders.length === 0 && !error ? (
         <p>You have no orders yet.</p>
       ) : (
-        orders.map((order) => (
-          <div key={order.id} className="order-card">
+        visibleOrders.map((order) => {
+          const expanded = expandedOrderId === order.id;
 
-            {/* Order Header */}
-            <div className="order-header">
-              <div>
-                <h3>Order #{order.id}</h3>
+          return (
+            <article key={order.id} className="order-card">
+              <div className="order-header">
+                <div>
+                  <h3>Order #{order.id}</h3>
 
-                <p>
-                  Date:{" "}
-                  {new Date(
-                    order.orderDate
-                  ).toLocaleDateString()}
-                </p>
+                  <p>
+                    Date:{" "}
+                    {new Date(order.orderDate).toLocaleDateString()}
+                  </p>
 
-                <p>
-                  Items:{" "}
-                  {order.items.reduce(
-                    (total, item) =>
-                      total + item.quantity,
-                    0
-                  )}
-                </p>
+                  <p>
+                    Items:{" "}
+                    {order.items.reduce(
+                      (total, item) => total + item.quantity,
+                      0
+                    )}
+                  </p>
+                </div>
+
+                <span
+                  className={`order-status ${order.status.toLowerCase()}`}
+                >
+                  {order.status}
+                </span>
               </div>
 
-              <span
-                className={`order-status ${order.status.toLowerCase()}`}
+              <div className="order-summary">
+                <span>Order Total</span>
+                <strong>${order.totalAmount.toFixed(2)}</strong>
+              </div>
+
+              <button
+                type="button"
+                className="order-details-btn"
+                aria-expanded={expanded}
+                aria-controls={`my-order-details-${order.id}`}
+                onClick={() =>
+                  setExpandedOrderId(expanded ? null : order.id)
+                }
               >
-                {order.status}
-              </span>
-            </div>
+                {expanded ? "Hide Details" : "View Details"}
+              </button>
 
-            {/* Order Summary */}
-            <div className="order-summary">
-              <span>Order Total</span>
+              {expanded && (
+                <div
+                  id={`my-order-details-${order.id}`}
+                  className="order-details"
+                >
+                  <h4>Order Items</h4>
 
-              <strong>
-                ${order.totalAmount.toFixed(2)}
-              </strong>
-            </div>
+                  {order.items.map((item, index) => (
+                    <div
+                      key={`${item.productId}-${index}`}
+                      className="order-item"
+                    >
+                      <div>
+                        <strong>
+                          {item.productName ||
+                            `Product #${item.productId}`}
+                        </strong>
 
-            {/* View Details Button */}
-            <button
-              type="button"
-              className="order-details-btn"
-              onClick={() =>
-                setExpandedOrderId(
-                  expandedOrderId === order.id
-                    ? null
-                    : order.id
-                )
-              }
-            >
-              {expandedOrderId === order.id
-                ? "Hide Details"
-                : "View Details"}
-            </button>
+                        <p>
+                          {item.quantity} × $
+                          {item.unitPrice.toFixed(2)}
+                        </p>
+                      </div>
 
-            {/* Conditional Order Details */}
-            {expandedOrderId === order.id && (
-              <div className="order-details">
-                <h4>Order Items</h4>
-
-                {order.items.map((item, index) => (
-                  <div
-                    key={`${item.productId}-${index}`}
-                    className="order-item"
-                  >
-                    <div>
                       <strong>
-                        {item.productName ||
-                          `Product #${item.productId}`}
+                        $
+                        {(item.quantity * item.unitPrice).toFixed(2)}
                       </strong>
-
-                      <p>
-                        {item.quantity} × $
-                        {item.unitPrice.toFixed(2)}
-                      </p>
                     </div>
+                  ))}
+                </div>
+              )}
+            </article>
+          );
+        })
+      )}
 
-                    <strong>
-                      $
-                      {(
-                        item.quantity * item.unitPrice
-                      ).toFixed(2)}
-                    </strong>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ))
+      {orders.length > ORDERS_PER_PAGE && (
+        <nav className="pagination" aria-label="My order pages">
+          <button
+            type="button"
+            className="secondary-button"
+            disabled={currentPage === 1}
+            onClick={() => setPage(currentPage - 1)}
+          >
+            Previous
+          </button>
+
+          <span aria-live="polite">
+            Page {currentPage} of {pageCount}
+          </span>
+
+          <button
+            type="button"
+            className="secondary-button"
+            disabled={currentPage === pageCount}
+            onClick={() => setPage(currentPage + 1)}
+          >
+            Next
+          </button>
+        </nav>
       )}
     </div>
   );

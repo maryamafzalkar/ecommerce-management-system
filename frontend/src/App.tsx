@@ -1,4 +1,13 @@
 import { useEffect, useRef, useState } from "react";
+import {
+  Navigate,
+  NavLink,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+  useParams,
+} from "react-router";
 import { Trash2 } from "lucide-react";
 import axios from "axios";
 import api from "./api";
@@ -9,106 +18,108 @@ import Cart from "./Cart";
 import MyOrders from "./MyOrders";
 import AdminOrders from "./AdminOrders";
 
+type Category = {
+  id: number;
+  name: string;
+};
+
+type Product = {
+  id: number;
+  name: string;
+  description: string;
+  price: number;
+  stockQuantity: number;
+  categoryId: number;
+};
+
+type ProductEditorProps = {
+  categories: Category[];
+  products: Product[];
+  loading: boolean;
+  error: string;
+  onSaved: (product: Product) => void;
+  onCancel: () => void;
+};
+
+const PRODUCTS_PER_PAGE = 4;
+
+function ProductEditor({
+  categories,
+  products,
+  loading,
+  error,
+  onSaved,
+  onCancel,
+}: ProductEditorProps) {
+  const { productId } = useParams();
+  const editing = productId !== undefined;
+
+  const product = editing
+    ? products.find((item) => item.id === Number(productId))
+    : null;
+
+  if (loading) {
+    return <p role="status">Loading product information...</p>;
+  }
+
+  if (error) {
+    return <p role="alert">{error}</p>;
+  }
+
+  if (editing && !product) {
+    return (
+      <section className="catalog-panel">
+        <h2>Product not found</h2>
+        <button type="button" onClick={onCancel}>
+          Back to Products
+        </button>
+      </section>
+    );
+  }
+
+  return (
+    <section className="catalog-panel">
+      <div className="product-editor-toolbar">
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={onCancel}
+        >
+          Back to Products
+        </button>
+      </div>
+
+      <ProductForm
+        key={product?.id ?? "new-product"}
+        categories={categories}
+        editingProduct={product ?? null}
+        onProductSaved={onSaved}
+        onCancelEdit={onCancel}
+      />
+    </section>
+  );
+}
+
 function App() {
-  const [categories, setCategories] = useState<any[]>([]);
-  const [products, setProducts] = useState<any[]>([]);
-  const [editingProduct, setEditingProduct] = useState<any | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [searchError, setSearchError] = useState("");
+  const [searching, setSearching] = useState(false);
+
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("");
-  const [showMyOrders, setShowMyOrders] = useState(false);
+  const [productPage, setProductPage] = useState(1);
   const [cartVersion, setCartVersion] = useState(0);
-
   const [cartBusy, setCartBusy] = useState(false);
+
   const cartBusyRef = useRef(false);
-
-  const beginCartOperation = () => {
-    if (cartBusyRef.current) return false;
-
-    cartBusyRef.current = true;
-    setCartBusy(true);
-    return true;
-  };
-
-  const endCartOperation = () => {
-    cartBusyRef.current = false;
-    setCartBusy(false);
-  };
-
-  useEffect(() => {
-    api
-      .get("/Categories")
-      .then((response) => setCategories(response.data))
-      .catch((error) => {
-        console.error("Failed to load categories:", error);
-      });
-
-    api
-      .get("/Products")
-      .then((response) => setProducts(response.data))
-      .catch((error) => {
-        console.error("Failed to load products:", error);
-      });
-  }, []);
-
-  const handleDelete = async (id: number) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this product?"
-    );
-
-    if (!confirmed) return;
-
-    try {
-      await api.delete(`/Products/${id}`);
-
-      setProducts((current) =>
-        current.filter((product) => product.id !== id)
-      );
-
-      if (editingProduct?.id === id) {
-        setEditingProduct(null);
-      }
-    } catch (error) {
-      console.error("DELETE ERROR:", error);
-
-      if (
-        axios.isAxiosError(error) &&
-        error.response?.status === 409 &&
-        typeof error.response.data === "string"
-      ) {
-        alert(error.response.data);
-      } else {
-        alert("Failed to delete product.");
-      }
-    }
-  };
-
-  const handleUpdate = (product: any) => {
-    setEditingProduct(product);
-
-    window.scrollTo({
-      top: 0,
-      behavior: "smooth",
-    });
-  };
-
-  const handleProductSaved = (savedProduct: any) => {
-    if (editingProduct) {
-      setProducts((current) =>
-        current.map((product) =>
-          product.id === savedProduct.id ? savedProduct : product
-        )
-      );
-
-      setEditingProduct(null);
-      return;
-    }
-
-    setProducts((current) => [...current, savedProduct]);
-  };
-
-  const handleCancelEdit = () => {
-    setEditingProduct(null);
-  };
+  const searchBusyRef = useRef(false);
 
   const token = localStorage.getItem("token");
 
@@ -117,7 +128,13 @@ function App() {
 
   if (token) {
     try {
-      const encodedPayload = token.split(".")[1]
+      const tokenPart = token.split(".")[1];
+
+      if (!tokenPart) {
+        throw new Error("Invalid token.");
+      }
+
+      const encodedPayload = tokenPart
         .replace(/-/g, "+")
         .replace(/_/g, "/");
 
@@ -130,7 +147,9 @@ function App() {
 
       const payload = JSON.parse(
         new TextDecoder().decode(
-          Uint8Array.from(decodedPayload, (char) => char.charCodeAt(0))
+          Uint8Array.from(decodedPayload, (char) =>
+            char.charCodeAt(0)
+          )
         )
       );
 
@@ -154,37 +173,171 @@ function App() {
     }
   }
 
+  const isAdmin = role === "Admin";
+  const isCustomer = role === "Customer";
+  const productsPath = isAdmin ? "/admin/products" : "/products";
+
+  useEffect(() => {
+    if (!token) return;
+
+    let active = true;
+
+    const loadCatalog = async () => {
+      setLoadingProducts(true);
+      setLoadError("");
+
+      try {
+        const [categoryResponse, productResponse] = await Promise.all([
+          api.get<Category[]>("/Categories"),
+          api.get<Product[]>("/Products"),
+        ]);
+
+        if (!active) return;
+
+        setCategories(categoryResponse.data);
+        setAllProducts(productResponse.data);
+        setProducts(productResponse.data);
+      } catch (error) {
+        if (!active) return;
+
+        console.error("Failed to load catalog:", error);
+        setLoadError(
+          "Unable to load products. Refresh the page to try again."
+        );
+      } finally {
+        if (active) {
+          setLoadingProducts(false);
+        }
+      }
+    };
+
+    void loadCatalog();
+
+    return () => {
+      active = false;
+    };
+  }, [token]);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0 });
+  }, [location.pathname]);
+
+  const beginCartOperation = () => {
+    if (cartBusyRef.current) return false;
+
+    cartBusyRef.current = true;
+    setCartBusy(true);
+    return true;
+  };
+
+  const endCartOperation = () => {
+    cartBusyRef.current = false;
+    setCartBusy(false);
+  };
+
   const handleLogout = () => {
+    if (cartBusyRef.current) return;
+
     localStorage.removeItem("token");
-    window.location.reload();
+    window.location.assign("/");
   };
 
   const handleSearch = async () => {
+    if (searchBusyRef.current) return;
+
+    searchBusyRef.current = true;
+    setSearching(true);
+    setSearchError("");
+
     try {
-      const response = await api.get("/Products", {
+      const response = await api.get<Product[]>("/Products", {
         params: { search, sort },
       });
 
       setProducts(response.data);
+      setProductPage(1);
     } catch (error) {
-      console.error("SEARCH ERROR:", error);
+      console.error("Search failed:", error);
+      setSearchError("Unable to search products. Please try again.");
+    } finally {
+      searchBusyRef.current = false;
+      setSearching(false);
     }
+  };
+
+  const handleDelete = async (id: number) => {
+    const confirmed = window.confirm(
+      "Are you sure you want to delete this product?"
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await api.delete(`/Products/${id}`);
+
+      setAllProducts((current) =>
+        current.filter((product) => product.id !== id)
+      );
+
+      setProducts((current) =>
+        current.filter((product) => product.id !== id)
+      );
+    } catch (error) {
+      console.error("Delete failed:", error);
+
+      if (
+        axios.isAxiosError(error) &&
+        typeof error.response?.data === "string"
+      ) {
+        alert(error.response.data);
+      } else {
+        alert("Failed to delete product.");
+      }
+    }
+  };
+
+  const handleProductSaved = (savedProduct: Product) => {
+    const exists = allProducts.some(
+      (product) => product.id === savedProduct.id
+    );
+
+    const updatedProducts = exists
+      ? allProducts.map((product) =>
+          product.id === savedProduct.id ? savedProduct : product
+        )
+      : [...allProducts, savedProduct];
+
+    setAllProducts(updatedProducts);
+    setProducts(updatedProducts);
+    setSearch("");
+    setSort("");
+    setSearchError("");
+    setProductPage(1);
+
+    navigate("/admin/products");
   };
 
   const handleAddToCart = async (productId: number) => {
     if (!beginCartOperation()) return;
 
     try {
-      await api.post(
-        `/CartItems?productId=${productId}&quantity=1`,
-        {}
-      );
+      await api.post("/CartItems", null, {
+        params: { productId, quantity: 1 },
+      });
 
       setCartVersion((current) => current + 1);
       alert("Product added to cart!");
     } catch (error) {
-      console.error("ADD TO CART ERROR:", error);
-      alert("Failed to add product to cart.");
+      console.error("Add to cart failed:", error);
+
+      if (
+        axios.isAxiosError(error) &&
+        typeof error.response?.data === "string"
+      ) {
+        alert(error.response.data);
+      } else {
+        alert("Failed to add product to cart.");
+      }
     } finally {
       endCartOperation();
     }
@@ -194,167 +347,363 @@ function App() {
     return <Login />;
   }
 
-  return (
-    <div className="App">
-      <h1>E-Commerce Management System</h1>
-
-      {username && (
-        <p>
-          Welcome, <strong>{username}</strong>
+  if (!isAdmin && !isCustomer) {
+    return (
+      <div className="App">
+        <p role="alert">
+          Unable to read your account role. Please log in again.
         </p>
-      )}
 
-      <input
-        type="text"
-        placeholder="Search products..."
-        value={search}
-        onChange={(event) => setSearch(event.target.value)}
-      />
+        <button type="button" onClick={handleLogout}>
+          Back to Login
+        </button>
+      </div>
+    );
+  }
 
-      <button type="button" onClick={handleSearch}>
-        Search
-      </button>
+  const pageCount = Math.max(
+    1,
+    Math.ceil(products.length / PRODUCTS_PER_PAGE)
+  );
 
-      <select
-        value={sort}
-        onChange={(event) => setSort(event.target.value)}
+  const currentPage = Math.min(productPage, pageCount);
+  const firstProductIndex = (currentPage - 1) * PRODUCTS_PER_PAGE;
+
+  const visibleProducts = products.slice(
+    firstProductIndex,
+    firstProductIndex + PRODUCTS_PER_PAGE
+  );
+
+  const navigationItems = isAdmin
+    ? [
+        { to: "/admin/products", label: "Products" },
+        { to: "/admin/orders", label: "Orders" },
+      ]
+    : [
+        { to: "/products", label: "Products" },
+        { to: "/cart", label: "Cart" },
+        { to: "/my-orders", label: "My Orders" },
+      ];
+
+  const catalogPage = (
+    <section className="catalog-panel">
+      <div className="section-heading">
+        <div>
+          <h2>Products</h2>
+          <p>
+            {isAdmin
+              ? "Manage your product catalog and stock."
+              : "Browse products and add items to your cart."}
+          </p>
+        </div>
+
+        {isAdmin && (
+          <button
+            type="button"
+            className="primary-button"
+            onClick={() => navigate("/admin/products/new")}
+          >
+            + Add Product
+          </button>
+        )}
+      </div>
+
+      <form
+        className="catalog-toolbar"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void handleSearch();
+        }}
       >
-        <option value="">Default</option>
-        <option value="price_asc">Price: Low to High</option>
-        <option value="price_desc">Price: High to Low</option>
-        <option value="name_asc">Name: A to Z</option>
-        <option value="name_desc">Name: Z to A</option>
-      </select>
+        <input
+          type="search"
+          aria-label="Search products"
+          placeholder="Search products..."
+          value={search}
+          disabled={loadingProducts || searching}
+          onChange={(event) => setSearch(event.target.value)}
+        />
 
-      <button
-        type="button"
-        onClick={handleLogout}
-        disabled={cartBusy}
-      >
-        Logout
-      </button>
+        <select
+          aria-label="Sort products"
+          value={sort}
+          disabled={loadingProducts || searching}
+          onChange={(event) => setSort(event.target.value)}
+        >
+          <option value="">Default order</option>
+          <option value="price_asc">Price: Low to High</option>
+          <option value="price_desc">Price: High to Low</option>
+          <option value="name_asc">Name: A to Z</option>
+          <option value="name_desc">Name: Z to A</option>
+        </select>
 
-      <h2>Categories</h2>
+        <button
+          type="submit"
+          className="primary-button"
+          disabled={loadingProducts || searching}
+        >
+          {searching ? "Searching..." : "Search"}
+        </button>
+      </form>
 
-      <div className="categories-list">
-        {categories.map((category, index) => (
-          <div className="category" key={category.id ?? index}>
+      <div className="categories-list" aria-label="Product categories">
+        {categories.map((category) => (
+          <span className="category" key={category.id}>
             {category.name}
-          </div>
+          </span>
         ))}
       </div>
 
-      {role === "Admin" && (
-        <ProductForm
-          categories={categories}
-          editingProduct={editingProduct}
-          onProductSaved={handleProductSaved}
-          onCancelEdit={handleCancelEdit}
-        />
-      )}
+      {loadError && <p role="alert">{loadError}</p>}
+      {searchError && <p role="alert">{searchError}</p>}
 
-      <h2>Products</h2>
+      {loadingProducts ? (
+        <p role="status">Loading products...</p>
+      ) : (
+        <>
+          <div className="products-section">
+            <table className="products-table">
+              <thead>
+                <tr>
+                  <th scope="col">Name</th>
+                  <th scope="col">Description</th>
+                  <th scope="col">Price</th>
+                  <th scope="col">Stock</th>
+                  <th scope="col">Category</th>
+                  <th scope="col">Action</th>
+                </tr>
+              </thead>
 
-      <div className="products-section">
-        <table className="products-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Description</th>
-              <th>Price</th>
-              <th>Stock</th>
-              <th>Category</th>
-              <th>Action</th>
-            </tr>
-          </thead>
+              <tbody>
+                {visibleProducts.map((product) => (
+                  <tr key={product.id}>
+                    <td>{product.name}</td>
+                    <td>{product.description}</td>
+                    <td>${product.price.toFixed(2)}</td>
+                    <td>{product.stockQuantity}</td>
 
-          <tbody>
-            {products.map((product) => (
-              <tr key={product.id}>
-                <td>{product.name}</td>
-                <td>{product.description}</td>
-                <td>${product.price}</td>
-                <td>{product.stockQuantity}</td>
+                    <td>
+                      {categories.find(
+                        (category) =>
+                          category.id === product.categoryId
+                      )?.name ?? "Unknown category"}
+                    </td>
 
-                <td>
-                  {
-                    categories.find(
-                      (category) => category.id === product.categoryId
-                    )?.name
-                  }
-                </td>
+                    <td>
+                      {isCustomer && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void handleAddToCart(product.id)
+                          }
+                          disabled={
+                            cartBusy || product.stockQuantity <= 0
+                          }
+                        >
+                          {product.stockQuantity <= 0
+                            ? "Out of stock"
+                            : "Add to Cart"}
+                        </button>
+                      )}
 
-                <td>
-                  {role === "Customer" && (
-                    <button
-                      type="button"
-                      onClick={() => handleAddToCart(product.id)}
-                      disabled={cartBusy}
-                      title="Add to cart"
-                    >
-                      Add to Cart
-                    </button>
-                  )}
+                      {isAdmin && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              navigate(
+                                `/admin/products/${product.id}/edit`
+                              )
+                            }
+                          >
+                            Edit
+                          </button>
 
-                  {role === "Admin" && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => handleUpdate(product)}
-                        title="Edit product"
-                      >
-                        Edit
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(product.id)}
-                        title="Delete product"
-                        aria-label={`Delete ${product.name}`}
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {role === "Customer" && (
-        <Cart
-          refreshKey={cartVersion}
-          cartBusy={cartBusy}
-          beginCartOperation={beginCartOperation}
-          endCartOperation={endCartOperation}
-        />
-      )}
-
-      {role === "Admin" && <AdminOrders />}
-
-      {role === "Customer" && (
-        <div className="orders-card">
-          <div className="orders-card-header">
-            <h3>📦 My Orders</h3>
-            <p>View your order history and status</p>
-
-            <button
-              type="button"
-              onClick={() => setShowMyOrders((current) => !current)}
-            >
-              {showMyOrders ? "Hide Orders" : "View My Orders"}
-            </button>
+                          <button
+                            type="button"
+                            title="Delete product"
+                            aria-label={`Delete ${product.name}`}
+                            onClick={() =>
+                              void handleDelete(product.id)
+                            }
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
 
-          {showMyOrders && (
-            <div className="orders-card-content">
-              <MyOrders />
-            </div>
+          {products.length === 0 && !loadError && (
+            <p className="empty-message">
+              No products to display.
+            </p>
+          )}
+
+          {products.length > 0 && (
+            <nav className="pagination" aria-label="Product pages">
+              <button
+                type="button"
+                disabled={currentPage === 1}
+                onClick={() => setProductPage(currentPage - 1)}
+              >
+                Previous
+              </button>
+
+              <span aria-live="polite">
+                Page {currentPage} of {pageCount}
+              </span>
+
+              <button
+                type="button"
+                disabled={currentPage === pageCount}
+                onClick={() => setProductPage(currentPage + 1)}
+              >
+                Next
+              </button>
+            </nav>
+          )}
+        </>
+      )}
+    </section>
+  );
+
+  return (
+    <div className={`App${isAdmin ? " admin-app" : ""}`}>
+      <header className="app-header">
+        <div>
+          <h1>E-Commerce Management System</h1>
+
+          {username && (
+            <p className="app-welcome">
+              Welcome, <strong>{username}</strong>
+              {isAdmin && (
+                <span className="admin-role-badge">Admin</span>
+              )}
+            </p>
           )}
         </div>
-      )}
+
+        <button
+          type="button"
+          className="logout-button"
+          disabled={cartBusy}
+          onClick={handleLogout}
+        >
+          Logout
+        </button>
+      </header>
+
+      <nav className="page-nav" aria-label="Main navigation">
+        {navigationItems.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            className={({ isActive }) =>
+              isActive
+                ? "page-nav-link is-active"
+                : "page-nav-link"
+            }
+            aria-disabled={cartBusy}
+            onClick={(event) => {
+              if (cartBusyRef.current) {
+                event.preventDefault();
+              }
+            }}
+          >
+            {item.label}
+          </NavLink>
+        ))}
+      </nav>
+
+      <main className="page-content">
+        <Routes>
+          <Route
+            path="/"
+            element={<Navigate to={productsPath} replace />}
+          />
+
+          {isAdmin ? (
+            <>
+              <Route
+                path="/admin/products"
+                element={catalogPage}
+              />
+
+              <Route
+                path="/admin/products/new"
+                element={
+                  <ProductEditor
+                    categories={categories}
+                    products={allProducts}
+                    loading={loadingProducts}
+                    error={loadError}
+                    onSaved={handleProductSaved}
+                    onCancel={() => navigate("/admin/products")}
+                  />
+                }
+              />
+
+              <Route
+                path="/admin/products/:productId/edit"
+                element={
+                  <ProductEditor
+                    categories={categories}
+                    products={allProducts}
+                    loading={loadingProducts}
+                    error={loadError}
+                    onSaved={handleProductSaved}
+                    onCancel={() => navigate("/admin/products")}
+                  />
+                }
+              />
+
+              <Route
+                path="/admin/orders"
+                element={
+                  <section className="admin-orders-panel">
+                    <AdminOrders />
+                  </section>
+                }
+              />
+            </>
+          ) : (
+            <>
+              <Route path="/products" element={catalogPage} />
+
+              <Route
+                path="/cart"
+                element={
+                  <Cart
+                    refreshKey={cartVersion}
+                    cartBusy={cartBusy}
+                    beginCartOperation={beginCartOperation}
+                    endCartOperation={endCartOperation}
+                  />
+                }
+              />
+
+              <Route
+                path="/my-orders"
+                element={
+                  <section className="customer-orders-page">
+                    <MyOrders />
+                  </section>
+                }
+              />
+            </>
+          )}
+
+          <Route
+            path="*"
+            element={<Navigate to={productsPath} replace />}
+          />
+        </Routes>
+      </main>
     </div>
   );
 }
