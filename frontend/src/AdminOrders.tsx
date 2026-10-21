@@ -18,6 +18,8 @@ type AdminOrder = {
   items: OrderItem[];
 };
 
+const ORDERS_PER_PAGE = 4;
+
 const nextStatuses: Record<string, string> = {
   Pending: "Processing",
   Processing: "Shipped",
@@ -30,6 +32,8 @@ function AdminOrders() {
   const [error, setError] = useState("");
   const [updateError, setUpdateError] = useState("");
   const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     let active = true;
@@ -117,47 +121,154 @@ function AdminOrders() {
   if (loading) return <p role="status">Loading orders...</p>;
   if (error) return <p role="alert">{error}</p>;
 
+  const pageCount = Math.max(1, Math.ceil(orders.length / ORDERS_PER_PAGE));
+  const currentPage = Math.min(page, pageCount);
+  const visibleOrders = orders.slice(
+    (currentPage - 1) * ORDERS_PER_PAGE,
+    currentPage * ORDERS_PER_PAGE
+  );
+
   return (
-    <div>
-      <h2>All Orders</h2>
+    <div className="admin-orders">
+      <div className="section-heading">
+        <div>
+          <h2>Orders</h2>
+          <p>Review purchases and manage order status.</p>
+        </div>
+
+        <span className="admin-order-count">
+          {orders.length} {orders.length === 1 ? "order" : "orders"}
+        </span>
+      </div>
 
       {updateError && <p role="alert">{updateError}</p>}
 
-      {orders.length === 0 && <p>No orders found.</p>}
+      {orders.length === 0 && (
+        <p className="empty-message">No orders found.</p>
+      )}
 
-      {orders.map((order) => (
-        <article className="orders-card" key={order.id}>
-          <h3>Order #{order.id}</h3>
+      <div className="admin-orders-list">
+        {visibleOrders.map((order) => {
+          const expanded = expandedId === order.id;
+          const nextStatus = nextStatuses[order.status];
 
-          <p>Customer ID: {order.customerId}</p>
-          <p>Date: {new Date(order.orderDate).toLocaleString()}</p>
-          <p>Status: {order.status}</p>
-          <p>Total: ${order.totalAmount.toFixed(2)}</p>
+          return (
+            <article className="admin-order-card" key={order.id}>
+              <header className="admin-order-header">
+                <div>
+                  <h3>Order #{order.id}</h3>
+                  <p>
+                    <time dateTime={order.orderDate}>
+                      {new Date(order.orderDate).toLocaleString()}
+                    </time>
+                  </p>
+                </div>
 
-          {nextStatuses[order.status] && (
-            <button
-              type="button"
-              disabled={updatingId !== null}
-              onClick={() => void handleUpdateStatus(order)}
-            >
-              {updatingId === order.id
-                ? "Updating..."
-                : `Mark as ${nextStatuses[order.status]}`}
-            </button>
-          )}
+                <span
+                  className={`order-status ${order.status.toLowerCase()}`}
+                >
+                  {order.status}
+                </span>
+              </header>
 
-          <ul>
-            {order.items.map((item, index) => (
-              <li key={`${order.id}-${item.productId}-${index}`}>
-                {item.productName} — Quantity: {item.quantity}
-                {" | "}Unit price: ${item.unitPrice.toFixed(2)}
-                {" | "}Subtotal: $
-                {(item.quantity * item.unitPrice).toFixed(2)}
-              </li>
-            ))}
-          </ul>
-        </article>
-      ))}
+              <div className="admin-order-summary">
+                <p>
+                  Customer #{order.customerId}
+                  <span aria-hidden="true"> · </span>
+                  {order.items.length}{" "}
+                  {order.items.length === 1 ? "item" : "items"}
+                </p>
+
+                <strong>${order.totalAmount.toFixed(2)}</strong>
+              </div>
+
+              <div className="admin-order-actions">
+                <button
+                  type="button"
+                  className="secondary-button"
+                  aria-expanded={expanded}
+                  aria-controls={`admin-order-details-${order.id}`}
+                  aria-label={`${
+                    expanded ? "Hide" : "View"
+                  } details for order ${order.id}`}
+                  onClick={() =>
+                    setExpandedId(expanded ? null : order.id)
+                  }
+                >
+                  {expanded ? "Hide Details" : "View Details"}
+                </button>
+
+                {nextStatus && (
+                  <button
+                    type="button"
+                    className="primary-button"
+                    disabled={updatingId !== null}
+                    onClick={() => void handleUpdateStatus(order)}
+                  >
+                    {updatingId === order.id
+                      ? "Updating..."
+                      : `Mark as ${nextStatus}`}
+                  </button>
+                )}
+              </div>
+
+              <div
+                id={`admin-order-details-${order.id}`}
+                className="admin-order-details"
+                hidden={!expanded}
+              >
+                <h4>Order Items</h4>
+
+                <ul className="admin-order-items">
+                  {order.items.map((item, index) => (
+                    <li
+                      className="admin-order-item"
+                      key={`${order.id}-${item.productId}-${index}`}
+                    >
+                      <div>
+                        <strong>{item.productName}</strong>
+                        <p>
+                          {item.quantity} × ${item.unitPrice.toFixed(2)}
+                        </p>
+                      </div>
+
+                      <strong>
+                        ${(item.quantity * item.unitPrice).toFixed(2)}
+                      </strong>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+
+      {orders.length > ORDERS_PER_PAGE && (
+        <nav className="pagination" aria-label="Order pages">
+          <button
+            type="button"
+            className="secondary-button"
+            disabled={currentPage === 1}
+            onClick={() => setPage(currentPage - 1)}
+          >
+            Previous
+          </button>
+
+          <span aria-live="polite">
+            Page {currentPage} of {pageCount}
+          </span>
+
+          <button
+            type="button"
+            className="secondary-button"
+            disabled={currentPage === pageCount}
+            onClick={() => setPage(currentPage + 1)}
+          >
+            Next
+          </button>
+        </nav>
+      )}
     </div>
   );
 }
