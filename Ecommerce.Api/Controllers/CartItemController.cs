@@ -210,89 +210,82 @@ private static bool IsCartConflict(Exception exception)
 [HttpDelete("{id}")]
 public async Task<IActionResult> RemoveFromCart(int id)
 {
-    var userIdClaim = User.FindFirst(
+    var userIdValue = User.FindFirst(
         System.Security.Claims.ClaimTypes.NameIdentifier
-    );
+    )?.Value;
 
-    if (userIdClaim == null)
+    if (!int.TryParse(userIdValue, out var userId))
     {
         return Unauthorized();
     }
 
-    var userId = int.Parse(userIdClaim.Value);
+    await using var transaction =
+        await _context.Database.BeginTransactionAsync(
+            System.Data.IsolationLevel.Serializable
+        );
 
-    var customer = await _context.Customers
-        .FirstOrDefaultAsync(c => c.UserId == userId);
-
-    if (customer == null)
+    try
     {
-        return NotFound("Customer profile not found.");
+        var customer = await _context.Customers
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.UserId == userId);
+
+        if (customer == null)
+        {
+            return NotFound("Customer profile not found.");
+        }
+
+        var cart = await _context.Carts
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.CustomerId == customer.Id);
+
+        if (cart == null)
+        {
+            return NotFound("Cart not found.");
+        }
+
+        var cartItem = await _context.CartItems
+            .FirstOrDefaultAsync(ci =>
+                ci.Id == id &&
+                ci.CartId == cart.Id);
+
+        if (cartItem == null)
+        {
+            return NotFound("Cart item not found.");
+        }
+
+        _context.CartItems.Remove(cartItem);
+
+        await _context.SaveChangesAsync();
+        await transaction.CommitAsync();
+
+        return NoContent();
     }
+    catch (Exception exception) when (
+        exception is DbUpdateConcurrencyException ||
+        IsCartConflict(exception))
+    {
+        await transaction.RollbackAsync();
 
-    var cart = await _context.Carts
-        .FirstOrDefaultAsync(c => c.CustomerId == customer.Id);
-
-   if (cart == null)
-{
-    return NotFound("Cart not found.");
+        return Conflict(
+            "Your cart changed during this request. " +
+            "Refresh your cart before trying again."
+        );
+    }
 }
 
-    var cartItem = await _context.CartItems
-        .FirstOrDefaultAsync(ci =>
-            ci.Id == id &&
-            ci.CartId == cart.Id);
-
-    if (cartItem == null)
-    {
-        return NotFound("Cart item not found.");
-    }
-
-    _context.CartItems.Remove(cartItem);
-
-    await _context.SaveChangesAsync();
-
-    return NoContent();
-}
 
 
 [HttpPut("{id}")]
 public async Task<IActionResult> UpdateQuantity(int id, int quantity)
 {
-    var userIdClaim = User.FindFirst(
+    var userIdValue = User.FindFirst(
         System.Security.Claims.ClaimTypes.NameIdentifier
-    );
+    )?.Value;
 
-    if (userIdClaim == null)
+    if (!int.TryParse(userIdValue, out var userId))
     {
         return Unauthorized();
-    }
-
-    var userId = int.Parse(userIdClaim.Value);
-
-    var customer = await _context.Customers
-        .FirstOrDefaultAsync(c => c.UserId == userId);
-
-    if (customer == null)
-    {
-        return NotFound("Customer profile not found.");
-    }
-
-    var cart = await _context.Carts
-        .FirstOrDefaultAsync(c => c.CustomerId == customer.Id);
-
-    if (cart == null)
-    {
-        return NotFound("Cart not found.");
-    }
-
-    var cartItem = await _context.CartItems
-        .FirstOrDefaultAsync(ci =>
-            ci.Id == id &&
-            ci.CartId == cart.Id);
-
-    if (cartItem == null)
-    {
-        return NotFound("Cart item not found.");
     }
 
     if (quantity <= 0)
@@ -300,25 +293,72 @@ public async Task<IActionResult> UpdateQuantity(int id, int quantity)
         return BadRequest("Quantity must be greater than zero.");
     }
 
-    var product = await _context.Products
-        .FirstOrDefaultAsync(p => p.Id == cartItem.ProductId);
+    await using var transaction =
+        await _context.Database.BeginTransactionAsync(
+            System.Data.IsolationLevel.Serializable
+        );
 
-    if (product == null)
+    try
     {
-        return NotFound("Product not found.");
-    }
+        var customer = await _context.Customers
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.UserId == userId);
 
-    if (quantity > product.StockQuantity)
+        if (customer == null)
+        {
+            return NotFound("Customer profile not found.");
+        }
+
+        var cart = await _context.Carts
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.CustomerId == customer.Id);
+
+        if (cart == null)
+        {
+            return NotFound("Cart not found.");
+        }
+
+        var cartItem = await _context.CartItems
+            .FirstOrDefaultAsync(ci =>
+                ci.Id == id &&
+                ci.CartId == cart.Id);
+
+        if (cartItem == null)
+        {
+            return NotFound("Cart item not found.");
+        }
+
+        var product = await _context.Products
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == cartItem.ProductId);
+
+        if (product == null)
+        {
+            return NotFound("Product not found.");
+        }
+
+        if (quantity > product.StockQuantity)
+        {
+            return BadRequest("Not enough stock.");
+        }
+
+        cartItem.Quantity = quantity;
+
+        await _context.SaveChangesAsync();
+        await transaction.CommitAsync();
+
+        return Ok(cartItem);
+    }
+    catch (Exception exception) when (
+        exception is DbUpdateConcurrencyException ||
+        IsCartConflict(exception))
     {
-        return BadRequest("Not enough stock.");
+        await transaction.RollbackAsync();
+
+        return Conflict(
+            "Your cart changed during this request. " +
+            "Refresh your cart before trying again."
+        );
     }
-
-    cartItem.Quantity = quantity;
-
-    await _context.SaveChangesAsync();
-
-    return Ok(cartItem);
 }
 }
-
-
