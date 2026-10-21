@@ -30,8 +30,17 @@ public class EcommerceDbContext : DbContext
 {
    
     base.OnModelCreating(modelBuilder);
+
     modelBuilder.Entity<User>()
     .HasIndex(u => u.Username)
+    .IsUnique();
+
+modelBuilder.Entity<Cart>()
+    .HasIndex(c => c.CustomerId)
+    .IsUnique();
+
+modelBuilder.Entity<CartItem>()
+    .HasIndex(ci => new { ci.CartId, ci.ProductId })
     .IsUnique();
     modelBuilder.Entity<Order>()
     .HasIndex(o => new { o.CustomerId, o.CheckoutRequestId })

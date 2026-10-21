@@ -71,50 +71,17 @@ public async Task<IActionResult> GetCartItems()
 }
 
 
-
-
+   
     [HttpPost]
 public async Task<IActionResult> AddToCart(int productId, int quantity)
 {
-    var userIdClaim = User.FindFirst(
+    var userIdValue = User.FindFirst(
         System.Security.Claims.ClaimTypes.NameIdentifier
-    );
+    )?.Value;
 
-    if (userIdClaim == null)
+    if (!int.TryParse(userIdValue, out var userId))
     {
         return Unauthorized();
-    }
-
-    var userId = int.Parse(userIdClaim.Value);
-
-    var customer = await _context.Customers
-        .FirstOrDefaultAsync(c => c.UserId == userId);
-
-    if (customer == null)
-    {
-        return NotFound("Customer profile not found.");
-    }
-
-    var cart = await _context.Carts
-        .FirstOrDefaultAsync(c => c.CustomerId == customer.Id);
-
-    if (cart == null)
-{
-    cart = new Cart
-    {
-        CustomerId = customer.Id
-    };
-
-    _context.Carts.Add(cart);
-    await _context.SaveChangesAsync();
-}
-
-    var product = await _context.Products
-        .FirstOrDefaultAsync(p => p.Id == productId);
-
-    if (product == null)
-    {
-        return NotFound("Product not found.");
     }
 
     if (quantity <= 0)
@@ -122,44 +89,123 @@ public async Task<IActionResult> AddToCart(int productId, int quantity)
         return BadRequest("Quantity must be greater than zero.");
     }
 
-    if (quantity > product.StockQuantity)
-    {
-        return BadRequest("Not enough stock.");
-    }
+    await using var transaction =
+        await _context.Database.BeginTransactionAsync(
+            System.Data.IsolationLevel.Serializable
+        );
 
-    var existingItem = await _context.CartItems
-        .FirstOrDefaultAsync(ci =>
-            ci.CartId == cart.Id &&
-            ci.ProductId == productId);
-    if (existingItem != null)
+    try
     {
-        var newQuantity = (long)existingItem.Quantity + quantity;
+        var customer = await _context.Customers
+            .AsNoTracking()
+            .FirstOrDefaultAsync(c => c.UserId == userId);
 
-        if (newQuantity > product.StockQuantity)
+        if (customer == null)
+        {
+            return NotFound("Customer profile not found.");
+        }
+
+        var product = await _context.Products
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == productId);
+
+        if (product == null)
+        {
+            return NotFound("Product not found.");
+        }
+
+        if (quantity > product.StockQuantity)
         {
             return BadRequest("Not enough stock.");
         }
 
-        existingItem.Quantity = (int)newQuantity;
-        existingItem.UnitPrice = product.Price;
-    }
-    else
-    {
-        var cartItem = new CartItem
+        var cart = await _context.Carts
+            .FirstOrDefaultAsync(c => c.CustomerId == customer.Id);
+
+        if (cart == null)
         {
-            CartId = cart.Id,
-            ProductId = productId,
-            Quantity = quantity,
-            UnitPrice= product.Price
-        };
+            cart = new Cart
+            {
+                CustomerId = customer.Id
+            };
 
+            _context.Carts.Add(cart);
+            await _context.SaveChangesAsync();
+        }
 
-        _context.CartItems.Add(cartItem);
-    }
-    await _context.SaveChangesAsync();
+        var existingItem = await _context.CartItems
+            .FirstOrDefaultAsync(ci =>
+                ci.CartId == cart.Id &&
+                ci.ProductId == productId);
+
+        if (existingItem != null)
+        {
+            var newQuantity = (long)existingItem.Quantity + quantity;
+
+            if (newQuantity > product.StockQuantity)
+            {
+                return BadRequest("Not enough stock.");
+            }
+
+            existingItem.Quantity = (int)newQuantity;
+            existingItem.UnitPrice = product.Price;
+        }
+        else
+        {
+            _context.CartItems.Add(new CartItem
+            {
+                CartId = cart.Id,
+                ProductId = productId,
+                Quantity = quantity,
+                UnitPrice = product.Price
+            });
+        }
+
+        await _context.SaveChangesAsync();
+        await transaction.CommitAsync();
+
         return Ok();
     }
+    catch (Exception exception) when (IsCartConflict(exception))
+    {
+        await transaction.RollbackAsync();
 
+        return Conflict(
+            "Your cart changed during this request. " +
+            "Refresh your cart before trying again."
+        );
+    }
+}
+
+private static bool IsCartConflict(Exception exception)
+{
+    for (
+        Exception? current = exception;
+        current != null;
+        current = current.InnerException
+    )
+    {
+        if (current is not Npgsql.PostgresException postgresException)
+        {
+            continue;
+        }
+
+        if (postgresException.SqlState is "40001" or "40P01")
+        {
+            return true;
+        }
+
+        if (postgresException.SqlState == "23505" &&
+            (postgresException.ConstraintName == "IX_Carts_CustomerId" ||
+             postgresException.ConstraintName ==
+                 "IX_CartItems_CartId_ProductId"))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
 
 [HttpDelete("{id}")]
 public async Task<IActionResult> RemoveFromCart(int id)
