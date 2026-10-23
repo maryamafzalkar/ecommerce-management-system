@@ -1,108 +1,145 @@
 # E-Commerce Management System
 
-A full-stack e-commerce management system built with ASP.NET Core Web API, SQL Server, Entity Framework Core, React, and TypeScript.
+A full-stack e-commerce application with separate customer and administrator experiences. Customers can browse products, manage a cart, place orders, and review their order history. Administrators can manage products and review orders.
 
-## 🚀 Technologies
+## Live application
 
-### Backend
-- C#
-- ASP.NET Core Web API
-- .NET 10
-- Entity Framework Core
-- SQL Server
-- JWT Authentication
-- BCrypt Password Hashing
-- Swagger / OpenAPI
+- **Frontend:** [ecommerce-management-system-frontend.onrender.com](https://ecommerce-management-system-frontend.onrender.com)
+- **Backend API:** [ecommerce-management-system-2-gzzl.onrender.com](https://ecommerce-management-system-2-gzzl.onrender.com)
+- **Source code:** [github.com/maryamafzalkar/ecommerce-management-system](https://github.com/maryamafzalkar/ecommerce-management-system)
 
-### Frontend
-- React
-- TypeScript
-- JavaScript
-- HTML5
-- CSS3
+The frontend and API are hosted on Render. The PostgreSQL database is hosted on Neon. Render free services may take a short time to wake after inactivity.
 
-### Development & Testing
-- Git
-- GitHub
-- Unit Testing
-- Docker
-
-## ✨ Features
-
-- User Registration and Login
-- JWT Authentication
-- Role-based Authorization
-- Product Management
-- Category Management
-- Customer Management
-- Order Management
-- CRUD Operations
-- SQL Server Database
-- Entity Framework Core Migrations
-- Swagger API Documentation
-
-## 🔐 Authentication
-
-The API uses JWT Bearer Authentication.
-
-Users can register and login through the authentication endpoints and use the generated JWT token to access protected endpoints.
-
-## 📦 API Endpoints
-
-### Authentication
-- `POST /api/Auth/register`
-- `POST /api/Auth/login`
-
-### Products
-- `GET /api/Products`
-- `POST /api/Products`
-- `PUT /api/Products/{id}`
-- `DELETE /api/Products/{id}`
-
-### Categories
-- `GET /api/Categories`
-- `POST /api/Categories`
-- `PUT /api/Categories/{id}`
-- `DELETE /api/Categories/{id}`
+## Features
 
 ### Customers
-- `GET /api/Customers`
-- `POST /api/Customers`
-- `PUT /api/Customers/{id}`
-- `DELETE /api/Customers/{id}`
 
-### Orders
-- `GET /api/Orders`
-- `POST /api/Orders`
-- `PUT /api/Orders/{id}`
-- `DELETE /api/Orders/{id}`
+- Register and sign in using JWT-based authentication.
+- Browse, search, and sort products by name or price.
+- Add products to a personal shopping cart.
+- Change cart quantities or remove items.
+- Place orders and view order history with expandable order details.
+- Browse paginated order lists.
 
-## 🗄️ Database
+### Administrators
 
-The application uses SQL Server with Entity Framework Core.
+- Use a role-specific administration experience.
+- Create, edit, and delete products.
+- Review customer orders and their items.
+- Advance an order through its supported statuses.
+- Browse paginated order lists.
 
-Database migrations are included in the project.
+### Reliability and security
 
-## 📚 API Documentation
+- API authorization separates administrator and customer operations.
+- Cart operations validate quantities and available stock.
+- Cart updates use database transactions to help protect concurrent changes.
+- User-specific cart and order access is enforced by the API.
+- Configuration secrets are supplied through environment variables and must not be committed to source control.
 
-Swagger UI is available during development:
+## Technology stack
 
-`http://localhost:5112/swagger`
+| Area | Technologies |
+| --- | --- |
+| Frontend | React, TypeScript, Vite, Axios, lucide-react |
+| Backend | ASP.NET Core Web API (.NET 10), Entity Framework Core, Npgsql |
+| Database | PostgreSQL (Neon) |
+| Authentication | JWT bearer tokens and role-based authorization |
+| Deployment | Render |
 
-## 🧪 Testing
+## Repository structure
 
-The application has been manually tested for CRUD operations ,authentications ,authorization ,valodation ,search ,sorting and security scenarios.
+```text
+.
+├── ecommerce.api/    # ASP.NET Core Web API
+└── frontend/         # React + TypeScript application
+```
 
-## 🐳 Docker
+## Run locally
 
-The backend is containerized using Docker for consistent development and deployment.
+### Prerequisites
 
-## 📌 Project Status
+- .NET 10 SDK
+- Node.js and npm
+- A PostgreSQL database (or access to the configured Neon database)
 
-Backend API and database functionality are implemented.
+### 1. Configure the backend
 
-Frontend development and additional features are planned as the project progresses.
+From the repository root, set the backend configuration values in your local environment or .NET user secrets. Do not put real credentials in a committed `appsettings.json` file.
 
-## 👩‍💻 Author
+The application reads these environment-variable keys in Render:
 
-Maryam Afzalkar
+- `ConnectionStrings__DefaultConnection`
+- `Jwt__Key`
+- `AdminSeed__Username`
+- `AdminSeed__Password`
+
+`ConnectionStrings__DefaultConnection` must be an Npgsql connection string, for example:
+
+```text
+Host=<host>;Port=5432;Database=<database>;Username=<username>;Password=<password>;SSL Mode=Require
+```
+
+Use your own database values. Keep passwords and signing keys private.
+
+In PowerShell, environment variables can be set for the current terminal session like this (replace each placeholder locally):
+
+```powershell
+$env:ConnectionStrings__DefaultConnection = "Host=<host>;Port=5432;Database=<database>;Username=<username>;Password=<password>;SSL Mode=Require"
+$env:Jwt__Key = "<a-long-random-secret>"
+$env:AdminSeed__Username = "<admin-username>"
+$env:AdminSeed__Password = "<strong-admin-password>"
+```
+
+Then restore and run the API:
+
+```powershell
+cd ecommerce.api
+dotnet restore
+dotnet run
+```
+
+Use the local API address printed by `dotnet run` when configuring the frontend.
+
+### 2. Configure and run the frontend
+
+Open `frontend/src/api.ts` and make sure its API base URL points to the local API address while developing locally. Then, in a second terminal:
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Open the local URL printed by Vite.
+
+For a production frontend build:
+
+```powershell
+cd frontend
+npm run build
+```
+
+## API areas
+
+The frontend uses the products, categories, cart, customer orders, and administrator orders API areas. Examples of routes used by the application include:
+
+- `/Products`
+- `/Categories`
+- `/CartItems`
+- `/Orders`
+- `/admin/orders`
+
+The API requires the appropriate authentication token for protected operations.
+
+## Deployment notes
+
+- Deploy the backend API and frontend as separate Render services.
+- Set backend secrets in the API service's Render **Environment** settings.
+- Configure the frontend API base URL to use the deployed API address.
+- The backend database connection must use the PostgreSQL/Npgsql connection-string format expected by the API.
+- Never publish database passwords, JWT keys, or administrator credentials in source code, screenshots, or logs.
+
+## License
+
+No license has been specified for this repository. Contact the repository owner before reusing or distributing the code.
