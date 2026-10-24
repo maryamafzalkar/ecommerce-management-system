@@ -6,6 +6,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Ecommerce.Api.Controllers;
 
@@ -22,8 +23,9 @@ public class AuthController : ControllerBase
         _context = context;
     }
 
-    
+ 
 [HttpPost("register")]
+[AllowAnonymous]
 public async Task<IActionResult> Register(RegisterRequest request)
 {
     var existingUser = await _context.Users
@@ -80,6 +82,7 @@ public async Task<IActionResult> Register(RegisterRequest request)
     
 
     [HttpPost("login")]
+    [AllowAnonymous]
     public async Task<IActionResult> Login(LoginRequest request)
     {
         var user = await _context.Users

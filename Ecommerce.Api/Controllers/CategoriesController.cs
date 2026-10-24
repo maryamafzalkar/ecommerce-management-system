@@ -17,7 +17,7 @@ public class CategoriesController : ControllerBase
     }
 
 
-
+    [Microsoft.AspNetCore.Authorization.AllowAnonymous]
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Category>>> GetCategories()
     {
