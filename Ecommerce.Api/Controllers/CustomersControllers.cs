@@ -2,11 +2,14 @@ using Ecommerce.Api.Data;
 using Ecommerce.Api.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
+
 
 namespace Ecommerce.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Microsoft.AspNetCore.Authorization.Authorize(Roles = "Admin")]
 public class CustomersController : ControllerBase
 {
     private readonly EcommerceDbContext _context;
@@ -19,6 +22,7 @@ public class CustomersController : ControllerBase
 
 
     [HttpGet]
+   
     public async Task<ActionResult<IEnumerable<Customer>>> GetCustomers()
     {
         return await _context.Customers

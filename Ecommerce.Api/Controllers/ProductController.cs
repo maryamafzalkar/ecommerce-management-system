@@ -3,6 +3,7 @@ using Ecommerce.Api.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Authorization;
 
 
 namespace Ecommerce.Api.Controllers;
@@ -23,6 +24,7 @@ public class ProductsController : ControllerBase
 
 
  [HttpGet]
+ [AllowAnonymous]
 public async Task<ActionResult<IEnumerable<Product>>> GetProducts(
     string? search,string? sort)
     
@@ -66,6 +68,10 @@ public async Task<ActionResult<IEnumerable<Product>>> GetProducts(
 {
     return BadRequest("Product name or description contains invalid characters.");
 }
+if (product.Price < 0 || product.StockQuantity < 0)
+{
+    return BadRequest("Price and stock quantity cannot be negative.");
+}
     var categoryExists = await _context.Categories
     .AnyAsync(c => c.Id == product.CategoryId);
 
@@ -93,6 +99,10 @@ public async Task<IActionResult> UpdateProduct(int id, Product product)
     Regex.IsMatch(product.Description, @"<[^>]*>"))
 {
     return BadRequest("Product name or description contains invalid characters.");
+}
+if (product.Price < 0 || product.StockQuantity < 0)
+{
+    return BadRequest("Price and stock quantity cannot be negative.");
 }
 
 

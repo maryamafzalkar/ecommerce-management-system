@@ -7,7 +7,7 @@ namespace Ecommerce.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize]
+[Authorize(Roles = "Admin")]
 public class OrderItemsController : ControllerBase
 {
     private readonly EcommerceDbContext _context;
