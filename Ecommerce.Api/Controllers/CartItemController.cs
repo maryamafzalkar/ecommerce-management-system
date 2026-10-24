@@ -336,10 +336,10 @@ public async Task<IActionResult> UpdateQuantity(int id, int quantity)
         {
             return NotFound("Product not found.");
         }
-
-        if (quantity > product.StockQuantity)
-        {
-            return BadRequest("Not enough stock.");
+    if (quantity > cartItem.Quantity &&
+       quantity > product.StockQuantity)
+         {
+             return BadRequest("Not enough stock.");
         }
 
         cartItem.Quantity = quantity;
