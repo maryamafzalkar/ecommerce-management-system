@@ -15,12 +15,13 @@ namespace Ecommerce.Api.Controllers;
 
 
 public class AuthController : ControllerBase
-{
+{private readonly IConfiguration _configuration;
     private readonly EcommerceDbContext _context;
 
-    public AuthController(EcommerceDbContext context)
+    public AuthController(EcommerceDbContext context, IConfiguration configuration)
     {
         _context = context;
+        _configuration = configuration;
     }
 
  
@@ -110,7 +111,7 @@ public async Task<IActionResult> Register(RegisterRequest request)
         };
 
         var key = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(Environment.GetEnvironmentVariable("Jwt__Key")!));
+            Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
 
         var credentials = new SigningCredentials(
             key,
