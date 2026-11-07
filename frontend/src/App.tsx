@@ -116,12 +116,14 @@ function App() {
   const [sort, setSort] = useState("");
   const [productPage, setProductPage] = useState(1);
   const [cartVersion, setCartVersion] = useState(0);
+  const [cartCount, setCartCount] = useState(0);
   const [cartBusy, setCartBusy] = useState(false);
 
   const cartBusyRef = useRef(false);
   const searchBusyRef = useRef(false);
 
   const token = localStorage.getItem("token");
+
 
   let role = "";
   let username = "";
@@ -324,9 +326,11 @@ function App() {
       await api.post("/CartItems", null, {
         params: { productId, quantity: 1 },
       });
+      setCartCount((count) => count + 1);
 
       setCartVersion((current) => current + 1);
       alert("Product added to cart!");
+      setCartCount((count) => count + 1);
     } catch (error) {
       console.error("Add to cart failed:", error);
 
@@ -569,6 +573,17 @@ function App() {
           )}
         </>
       )}
+      {isCustomer && (
+  <div className="page-step-actions">
+    <button
+      type="button"
+      className="primary-button"
+      onClick={() => navigate("/cart")}
+    >
+      Next: Cart →
+    </button>
+  </div>
+)}
     </section>
   );
 
@@ -616,6 +631,10 @@ function App() {
             }}
           >
             {item.label}
+            {item.to === "/cart" && cartCount > 0 && (
+  <span className="cart-count-badge">{cartCount}</span>
+      
+     )}
           </NavLink>
         ))}
       </nav>
@@ -683,6 +702,8 @@ function App() {
                     cartBusy={cartBusy}
                     beginCartOperation={beginCartOperation}
                     endCartOperation={endCartOperation}
+                      onCartCountChange={setCartCount}
+                    onNext={() => navigate("/my-orders")}
                   />
                 }
               />
@@ -692,6 +713,7 @@ function App() {
                 element={
                   <section className="customer-orders-page">
                     <MyOrders />
+         
                   </section>
                 }
               />
