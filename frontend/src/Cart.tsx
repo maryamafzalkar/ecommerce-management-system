@@ -17,11 +17,14 @@ type CartResponse = {
   total: number;
 };
 
+
 type CartProps = {
   refreshKey?: number;
   cartBusy: boolean;
   beginCartOperation: () => boolean;
   endCartOperation: () => void;
+  onCartCountChange: (count: number) => void;
+  onNext: () => void;
 };
 
 function getCheckoutStorageKey(): string {
@@ -90,7 +93,10 @@ function Cart({
   cartBusy,
   beginCartOperation,
   endCartOperation,
+  onCartCountChange,
+  onNext,
 }: CartProps) {
+  
   const [cart, setCart] = useState<CartResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [checkingOut, setCheckingOut] = useState(false);
@@ -122,6 +128,9 @@ function Cart({
 
         if (active && version === fetchVersion.current) {
           setCart(response.data);
+          onCartCountChange(
+  response.data.items.reduce((sum, item) => sum + item.quantity, 0)
+);
           loadedRefreshKey.current = refreshKey;
         }
       } catch (loadError) {
@@ -151,6 +160,9 @@ function Cart({
 
     if (version === fetchVersion.current) {
       setCart(response.data);
+      onCartCountChange(
+  response.data.items.reduce((sum, item) => sum + item.quantity, 0)
+);
       loadedRefreshKey.current = refreshKey;
     }
   };
@@ -398,8 +410,19 @@ function Cart({
           )}
         </>
       )}
+      <div className="page-step-actions">
+  <button
+    type="button"
+    className="primary-button"
+    disabled={cartBusy}
+    onClick={onNext}
+  >
+    Next
+  </button>
+</div>
     </div>
   );
+  
 }
 
 export default Cart;

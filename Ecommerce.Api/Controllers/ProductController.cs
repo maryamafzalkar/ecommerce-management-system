@@ -29,7 +29,8 @@ public async Task<ActionResult<IEnumerable<Product>>> GetProducts(
     string? search,string? sort)
     
 {
-    var query = _context.Products     
+    var query = _context.Products
+    .Include(p => p.Category)
     .AsQueryable();
 
     if (!string.IsNullOrWhiteSpace(search))
