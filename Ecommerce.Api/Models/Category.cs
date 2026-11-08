@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace Ecommerce.Api.Models;
 
@@ -14,5 +15,6 @@ public class Category
     )]
     public string Name { get; set; } = string.Empty;
 
+    [JsonIgnore]
     public ICollection<Product> Products { get; set; } = new List<Product>();
 }
