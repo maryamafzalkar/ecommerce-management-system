@@ -1,87 +1,92 @@
+
 using Ecommerce.Api.Data;
 using Ecommerce.Api.Models;
+using Ecommerce.Api.Settings;
+
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using Microsoft.AspNetCore.Authorization;
 
 namespace Ecommerce.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-
-
 public class AuthController : ControllerBase
-{private readonly IConfiguration _configuration;
+{
     private readonly EcommerceDbContext _context;
+    private readonly JwtSettings _jwtSettings;
 
-    public AuthController(EcommerceDbContext context, IConfiguration configuration)
+    public AuthController(
+        EcommerceDbContext context,
+        IOptions<JwtSettings> jwtOptions)
     {
         _context = context;
-        _configuration = configuration;
+        _jwtSettings = jwtOptions.Value;
     }
 
- 
-[HttpPost("register")]
-[AllowAnonymous]
-public async Task<IActionResult> Register(RegisterRequest request)
-{
-    var existingUser = await _context.Users
-        .AnyAsync(u => u.Username == request.Username);
-
-    if (existingUser)
+    // REGISTER
+    [HttpPost("register")]
+    [AllowAnonymous]
+    public async Task<IActionResult> Register(RegisterRequest request)
     {
-        return BadRequest("Username already exists.");
-    }
+        var existingUser = await _context.Users
+            .AnyAsync(u => u.Username == request.Username);
 
-    var user = new User
-    {
-        Username = request.Username,
-        PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
-        Role = "Customer"
-    };
-
-    await using var transaction =
-        await _context.Database.BeginTransactionAsync();
-
-    try
-    {
-        _context.Users.Add(user);
-        await _context.SaveChangesAsync();
-
-        var customer = new Customer
+        if (existingUser)
         {
-            UserId = user.Id
+            return BadRequest("Username already exists.");
+        }
+
+        var user = new User
+        {
+            Username = request.Username,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
+            Role = "Customer"
         };
 
-        _context.Customers.Add(customer);
-        await _context.SaveChangesAsync();
+        await using var transaction =
+            await _context.Database.BeginTransactionAsync();
 
-        await transaction.CommitAsync();
-
-        return Ok(new
+        try
         {
-            message = "User registered successfully."
-        });
-    }
-    catch (DbUpdateException exception) when (
-        exception.InnerException is Npgsql.PostgresException
+            _context.Users.Add(user);
+            await _context.SaveChangesAsync();
+
+            var customer = new Customer
+            {
+                UserId = user.Id
+            };
+
+            _context.Customers.Add(customer);
+            await _context.SaveChangesAsync();
+
+            await transaction.CommitAsync();
+
+            return Ok(new
+            {
+                message = "User registered successfully."
+            });
+        }
+        catch (DbUpdateException exception) when (
+            exception.InnerException is Npgsql.PostgresException
+            {
+                SqlState: "23505",
+                ConstraintName: "IX_Users_Username"
+            })
         {
-            SqlState: "23505",
-            ConstraintName: "IX_Users_Username"
-        })
-    {
-        await transaction.RollbackAsync();
+            await transaction.RollbackAsync();
 
-        return BadRequest("Username already exists.");
+            return BadRequest("Username already exists.");
+        }
     }
-}
-    
-    
 
+    // LOGIN
     [HttpPost("login")]
     [AllowAnonymous]
     public async Task<IActionResult> Login(LoginRequest request)
@@ -111,15 +116,18 @@ public async Task<IActionResult> Register(RegisterRequest request)
         };
 
         var key = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!));
+            Encoding.UTF8.GetBytes(_jwtSettings.Key));
 
         var credentials = new SigningCredentials(
             key,
             SecurityAlgorithms.HmacSha256);
 
         var token = new JwtSecurityToken(
+            issuer: _jwtSettings.Issuer,
+            audience: _jwtSettings.Audience,
             claims: claims,
-            expires: DateTime.UtcNow.AddHours(2),
+            expires: DateTime.UtcNow.AddHours(
+                _jwtSettings.ExpirationHours),
             signingCredentials: credentials);
 
         var jwt = new JwtSecurityTokenHandler().WriteToken(token);

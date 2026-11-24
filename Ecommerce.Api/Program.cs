@@ -1,48 +1,124 @@
+
 using Ecommerce.Api.Data;
+using Ecommerce.Api.Settings;
+using Ecommerce.Api.Models;
+
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using Microsoft.AspNetCore.Authorization;
 
 
 var builder = WebApplication.CreateBuilder(args);
 
+// =====================================
+// 1. JWT SETTINGS
+// =====================================
+
+builder.Services
+    .AddOptions<JwtSettings>()
+    .Bind(builder.Configuration.GetSection("Jwt"))
+    .Validate(
+        settings => !string.IsNullOrWhiteSpace(settings.Key),
+        "JWT Key is missing.")
+    .Validate(
+        settings => settings.Key.Length >= 32,
+        "JWT Key must be at least 32 characters.")
+    .Validate(
+        settings => !string.IsNullOrWhiteSpace(settings.Issuer),
+        "JWT Issuer is missing.")
+    .Validate(
+        settings => !string.IsNullOrWhiteSpace(settings.Audience),
+        "JWT Audience is missing.")
+    .Validate(
+        settings => settings.ExpirationHours > 0,
+        "JWT ExpirationHours must be positive.")
+    .ValidateOnStart();
+
+// =====================================
+// 2. ADMIN SEED SETTINGS
+// =====================================
+
+builder.Services
+    .AddOptions<AdminSeedSettings>()
+    .Bind(builder.Configuration.GetSection("AdminSeed"))
+    .Validate(
+        settings => !string.IsNullOrWhiteSpace(settings.Username),
+        "AdminSeed Username is required.")
+    .Validate(
+        settings => !string.IsNullOrWhiteSpace(settings.Password),
+        "AdminSeed Password is required.")
+    .ValidateOnStart();
+
+// =====================================
+// 3. CONTROLLERS
+// =====================================
+
 builder.Services.AddControllers();
+
+// =====================================
+// 4. CORS
+// =====================================
 
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
         policy
-            .WithOrigins("http://localhost:5173",
-            "https://ecommerce-management-system-frontend.onrender.com")
+            .WithOrigins(
+                "http://localhost:5173",
+                "https://ecommerce-management-system-frontend.onrender.com")
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
 });
 
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+// =====================================
+// 5. AUTHENTICATION - JWT
+// =====================================
+
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuer = false,
-            ValidateAudience = false,
-            ValidateLifetime = true,
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(
-                Encoding.UTF8.GetBytes(
-                    builder.Configuration["Jwt:Key"]!))
-        };
+        var jwtSettings = builder.Configuration
+            .GetSection("Jwt")
+            .Get<JwtSettings>()!;
+
+        options.TokenValidationParameters =
+            new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidIssuer = jwtSettings.Issuer,
+
+                ValidateAudience = true,
+                ValidAudience = jwtSettings.Audience,
+
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+
+                IssuerSigningKey = new SymmetricSecurityKey(
+                    Encoding.UTF8.GetBytes(jwtSettings.Key))
+            };
     });
+
+// =====================================
+// 6. AUTHORIZATION
+// =====================================
 
 builder.Services.AddAuthorization(options =>
 {
-    options.FallbackPolicy = new AuthorizationPolicyBuilder()
-        .RequireAuthenticatedUser()
-        .Build();
+    options.FallbackPolicy =
+        new AuthorizationPolicyBuilder()
+            .RequireAuthenticatedUser()
+            .Build();
 });
+
+// =====================================
+// 7. SWAGGER
+// =====================================
 
 builder.Services.AddEndpointsApiExplorer();
 
@@ -55,7 +131,8 @@ builder.Services.AddSwaggerGen(options =>
             Type = Microsoft.OpenApi.SecuritySchemeType.Http,
             Scheme = "bearer",
             BearerFormat = "JWT",
-            Description = "JWT Authorization header using the Bearer scheme."
+            Description =
+                "JWT Authorization header using the Bearer scheme."
         });
 
     options.AddSecurityRequirement(document =>
@@ -66,13 +143,30 @@ builder.Services.AddSwaggerGen(options =>
         });
 });
 
+// =====================================
+// 8. DATABASE - POSTGRESQL
+// =====================================
+
 builder.Services.AddDbContext<EcommerceDbContext>(options =>
     options.UseNpgsql(
-        builder.Configuration.GetConnectionString("DefaultConnection")));
+        builder.Configuration.GetConnectionString(
+            "DefaultConnection")));
+
+// =====================================
+// 9. OPENAPI
+// =====================================
 
 builder.Services.AddOpenApi();
 
+// =====================================
+// 10. BUILD APPLICATION
+// =====================================
+
 var app = builder.Build();
+
+// =====================================
+// 11. MIDDLEWARE
+// =====================================
 
 app.UseSwagger();
 app.UseSwaggerUI();
@@ -82,6 +176,10 @@ app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
 
+// =====================================
+// 12. MAP CONTROLLERS
+// =====================================
+
 app.MapControllers();
 
 if (app.Environment.IsDevelopment())
@@ -89,28 +187,34 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-var adminUsername = builder.Configuration["AdminSeed:Username"];
-var adminPassword = builder.Configuration["AdminSeed:Password"];
+// =====================================
+// 13. ADMIN SEED
+// =====================================
 
-if (!string.IsNullOrWhiteSpace(adminUsername) &&
-    !string.IsNullOrWhiteSpace(adminPassword))
+var adminSeedSettings = app.Services
+    .GetRequiredService<IOptions<AdminSeedSettings>>()
+    .Value;
+
+using (var scope = app.Services.CreateScope())
 {
-    using var scope = app.Services.CreateScope();
-
     var context = scope.ServiceProvider
         .GetRequiredService<EcommerceDbContext>();
 
     var existingUser = await context.Users
-        .FirstOrDefaultAsync(u => u.Username == adminUsername);
+        .FirstOrDefaultAsync(
+            user => user.Username == adminSeedSettings.Username);
 
     if (existingUser == null)
     {
-        context.Users.Add(new Ecommerce.Api.Models.User
+        var adminUser = new User
         {
-            Username = adminUsername,
-            PasswordHash = BCrypt.Net.BCrypt.HashPassword(adminPassword),
+            Username = adminSeedSettings.Username,
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(
+                adminSeedSettings.Password),
             Role = "Admin"
-        });
+        };
+
+        context.Users.Add(adminUser);
 
         await context.SaveChangesAsync();
     }
@@ -120,6 +224,11 @@ if (!string.IsNullOrWhiteSpace(adminUsername) &&
             "Admin seed username is already used by a non-admin account.");
     }
 }
-//app.UseHttpsRedirection();
+
+// =====================================
+// 14. RUN APPLICATION
+// =====================================
+
+// app.UseHttpsRedirection();
 
 app.Run();
